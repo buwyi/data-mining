@@ -1,10 +1,17 @@
 import { ReloadOutlined } from '@ant-design/icons'
 import { Button, Flex, Result, Spin, Typography } from 'antd'
-import type { ReactNode } from 'react'
-import { useAppConfig } from '../../config/AppConfigContext'
+import { useEffect, type ReactNode } from 'react'
+import { useShallow } from 'zustand/react/shallow'
+import { useConfigStore } from '../../stores/configStore'
 
 export function AppBootstrap({ children }: { children: ReactNode }) {
-  const { status, error, reload } = useAppConfig()
+  const { status, error, load } = useConfigStore(
+    useShallow((s) => ({ status: s.status, error: s.error, load: s.load })),
+  )
+
+  useEffect(() => {
+    void load()
+  }, [load])
 
   if (status === 'idle' || status === 'loading') {
     return (
@@ -23,7 +30,7 @@ export function AppBootstrap({ children }: { children: ReactNode }) {
           title="配置加载失败"
           subTitle={error ?? '请检查网络与 config.json 是否可访问'}
           extra={
-            <Button type="primary" icon={<ReloadOutlined />} onClick={() => void reload()}>
+            <Button type="primary" icon={<ReloadOutlined />} onClick={() => void load()}>
               重试
             </Button>
           }

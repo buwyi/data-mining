@@ -2,7 +2,6 @@ import { App as AntdApp, ConfigProvider } from 'antd'
 import zhCN from 'antd/locale/zh_CN'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppBootstrap } from './components/AppBootstrap'
-import { AppConfigProvider } from './config/AppConfigContext'
 import { AppLayout } from './layouts/AppLayout'
 import { ComponentsPage } from './pages/ComponentsPage'
 import { DataSourcePage } from './pages/DataSourcePage'
@@ -14,22 +13,20 @@ export default function App() {
   return (
     <ConfigProvider locale={zhCN}>
       <AntdApp>
-        <AppConfigProvider>
-          <AppBootstrap>
-            <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<Navigate to="/home/main" replace />} />
-                <Route path="/home" element={<AppLayout />}>
-                  <Route path="main" element={<MainPage />} />
-                  <Route path="datasource" element={<DataSourcePage />} />
-                  <Route path="project" element={<ProjectPage />} />
-                  <Route path="components" element={<ComponentsPage />} />
-                </Route>
-                <Route path="*" element={<NotFoundPage />} />
-              </Routes>
-            </BrowserRouter>
-          </AppBootstrap>
-        </AppConfigProvider>
+        <AppBootstrap>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Navigate to="/home/main" replace />} />
+              <Route path="/home" element={<AppLayout />}>
+                <Route path="main" element={<MainPage />} />
+                <Route path="datasource" element={<DataSourcePage />} />
+                <Route path="project" element={<ProjectPage />} />
+                <Route path="components" element={<ComponentsPage />} />
+              </Route>
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </BrowserRouter>
+        </AppBootstrap>
       </AntdApp>
     </ConfigProvider>
   )
