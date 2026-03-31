@@ -11,3 +11,17 @@ export {
   parseFlowDocumentFromUnknown,
   stringifyFlowForSave,
 } from './flowWireCodec'
+export type { TipdmEdgeData, TipdmNodeData, TipdmRfEdge, TipdmWireRfNode } from './reactFlowTypes'
+export {
+  listWirePorts,
+  portRecordId,
+  readWireDisplayName,
+  readWireNodeId,
+  readWirePosition,
+} from './nodeWireHelpers'
+export {
+  collectWireNodePortIds,
+  persistedFlowToReactFlow,
+  reactFlowToPersistedPayload,
+  TIPDM_WIRE_NODE_TYPE,
+} from './reactFlowAdapter'
