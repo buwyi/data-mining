@@ -25,3 +25,4 @@ export {
   reactFlowToPersistedPayload,
   TIPDM_WIRE_NODE_TYPE,
 } from './reactFlowAdapter'
+export { reconcileInputPortsConnected } from './flowGraphReconcile'

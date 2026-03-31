@@ -141,6 +141,11 @@ export type ProjectStoreState = {
   flowData: FlowDataState
   /** 当前打开的工程 id（与 `currentProjectDetail.id` 同步） */
   currentProjectId: number | null
+  /**
+   * 仅在从远端加载/整包替换流程时递增；画布本地编辑不递增。
+   * React Flow 用它触发「从 store 重置画布」而避免编辑回流造成循环。
+   */
+  flowRemoteRevision: number
 
   setCurrentProjectId: (id: number | null) => void
   setFlowData: (partial: Partial<FlowDataState>) => void
@@ -168,6 +173,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   projectMenu: [createRootProjectMenu()],
   flowData: createInitialFlowData(),
   currentProjectId: null,
+  flowRemoteRevision: 0,
 
   setCurrentProjectId: (currentProjectId) => set({ currentProjectId }),
 
@@ -211,6 +217,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
   applyPersistedFlow: (doc) =>
     set((s) => ({
+      flowRemoteRevision: s.flowRemoteRevision + 1,
       flowData: {
         ...s.flowData,
         contentStyle: { ...doc.style },

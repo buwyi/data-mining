@@ -6,7 +6,7 @@ import {
   readWireNodeId,
   readWirePosition,
 } from './nodeWireHelpers'
-import type { TipdmEdgeData, TipdmNodeData, TipdmWireRfNode } from './reactFlowTypes'
+import type { TipdmEdgeData, TipdmWireRfNode } from './reactFlowTypes'
 
 export const TIPDM_WIRE_NODE_TYPE = 'tipdmWire' as const
 
