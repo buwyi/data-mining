@@ -1,8 +1,11 @@
 import { create } from 'zustand'
 import {
+  applyProjectExecution,
   fetchProjectChildren,
   fetchProjectDetail,
+  runProjectFlowFull,
   saveProjectFlowContent,
+  shutdownProjectRun,
   type ProjectChildDto,
   type ProjectDetailDto,
 } from '../api/projectApi'
@@ -167,6 +170,10 @@ export type ProjectStoreState = {
   loadProjectFlow: (projectId: number) => Promise<void>
   /** 对齐 `saveCurrentFlowJson`：将当前内存中的 style/nodes/links POST 到服务端 */
   saveCurrentFlow: () => Promise<void>
+  /** 先保存当前流程，再 `apply` + 全流程 `GET execute`（与 api-doc 5.4 一致） */
+  runCurrentFlowFull: () => Promise<void>
+  /** 若存在 workFlowId 则请求 shutdown，并清除本地运行态 */
+  stopCurrentFlowRun: () => Promise<void>
 }
 
 export const useProjectStore = create<ProjectStoreState>((set, get) => ({
@@ -243,6 +250,8 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         nodes: [],
         links: [],
         contentStyle: emptyPersistedFlowDocument().style,
+        isRunning: false,
+        workFlowId: 0,
       },
       currentProjectId: null,
     })),
@@ -300,5 +309,40 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     const { contentStyle, nodes, links } = get().flowData
     const body = stringifyFlowForSave({ style: contentStyle, nodes, links })
     await saveProjectFlowContent(detail.id, body)
+  },
+
+  runCurrentFlowFull: async () => {
+    await get().saveCurrentFlow()
+    const detail = get().flowData.currentProjectDetail
+    if (!detail?.id) {
+      throw new Error('没有当前工程，无法运行')
+    }
+    const projectId = detail.id
+    const executionId = await applyProjectExecution(projectId)
+    const { workFlowId } = await runProjectFlowFull(projectId, executionId)
+    set((s) => ({
+      flowData: {
+        ...s.flowData,
+        isRunning: true,
+        workFlowId: workFlowId ?? s.flowData.workFlowId,
+      },
+    }))
+  },
+
+  stopCurrentFlowRun: async () => {
+    const wf = get().flowData.workFlowId
+    if (wf > 0) {
+      try {
+        await shutdownProjectRun(wf)
+      } finally {
+        set((s) => ({
+          flowData: { ...s.flowData, isRunning: false, workFlowId: 0 },
+        }))
+      }
+      return
+    }
+    set((s) => ({
+      flowData: { ...s.flowData, isRunning: false },
+    }))
   },
 }))

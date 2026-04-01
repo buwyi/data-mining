@@ -131,11 +131,11 @@ function ProjectFlowCanvasInner({ height = 520, readOnly = false }: ProjectFlowC
       nodesConnectable={!readOnly}
       elementsSelectable={!readOnly}
       edgesReconnectable={!readOnly}
-      panOnScroll
+      panOnDrag
       zoomOnScroll
       minZoom={0.15}
       maxZoom={1.8}
-      deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
+      deleteKeyCode={readOnly ? undefined : ['Backspace', 'Delete']}
       proOptions={{ hideAttribution: true }}
       style={{ height }}
     >
