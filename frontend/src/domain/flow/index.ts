@@ -26,3 +26,4 @@ export {
   TIPDM_WIRE_NODE_TYPE,
 } from './reactFlowAdapter'
 export { reconcileInputPortsConnected } from './flowGraphReconcile'
+export { buildFlowNodeWireFromComponent } from './buildNodeFromComponent'

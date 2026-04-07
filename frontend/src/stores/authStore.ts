@@ -1,14 +1,45 @@
 import { create } from 'zustand'
 
-/** 登录态与令牌（阶段 6 对接 OAuth / 路由守卫时扩展 user、过期时间等） */
+export type TokenUser = {
+  username: string
+  permissions: string[]
+}
+
+function readStoredAccessToken(): string | null {
+  try {
+    return localStorage.getItem('accessToken')
+  } catch {
+    return null
+  }
+}
+
 export type AuthState = {
   accessToken: string | null
+  tokenUser: TokenUser | null
   setAccessToken: (token: string | null) => void
+  setTokenUser: (user: TokenUser | null) => void
   clearAuth: () => void
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  accessToken: null,
-  setAccessToken: (accessToken) => set({ accessToken }),
-  clearAuth: () => set({ accessToken: null }),
+  accessToken: readStoredAccessToken(),
+  tokenUser: null,
+  setAccessToken: (accessToken) => {
+    set({ accessToken })
+    try {
+      if (accessToken) localStorage.setItem('accessToken', accessToken)
+      else localStorage.removeItem('accessToken')
+    } catch {
+      /* ignore */
+    }
+  },
+  setTokenUser: (tokenUser) => set({ tokenUser }),
+  clearAuth: () => {
+    set({ accessToken: null, tokenUser: null })
+    try {
+      localStorage.removeItem('accessToken')
+    } catch {
+      /* ignore */
+    }
+  },
 }))

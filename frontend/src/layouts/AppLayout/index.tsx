@@ -2,11 +2,15 @@ import {
   ApartmentOutlined,
   DatabaseOutlined,
   HomeOutlined,
+  LogoutOutlined,
   SettingOutlined,
 } from '@ant-design/icons'
-import { Layout, Menu, theme } from 'antd'
+import { Button, Layout, Menu, Space, theme } from 'antd'
 import type { MenuProps } from 'antd'
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { fetchTokenInfo } from '../../api/tokenApi'
+import { useAuthStore } from '../../stores/authStore'
 
 const { Header, Sider, Content } = Layout
 
@@ -35,6 +39,26 @@ const menuItems: MenuProps['items'] = [
 
 export function AppLayout() {
   const location = useLocation()
+  const navigate = useNavigate()
+  const clearAuth = useAuthStore((s) => s.clearAuth)
+  const tokenUser = useAuthStore((s) => s.tokenUser)
+  const setTokenUser = useAuthStore((s) => s.setTokenUser)
+  const accessToken = useAuthStore((s) => s.accessToken)
+
+  useEffect(() => {
+    if (!accessToken || tokenUser) return
+    void fetchTokenInfo()
+      .then((info) =>
+        setTokenUser({
+          username: typeof info.username === 'string' ? info.username : '',
+          permissions: Array.isArray(info.permissions) ? info.permissions : [],
+        }),
+      )
+      .catch(() => {
+        /* 保留登录态，仅不展示用户名 */
+      })
+  }, [accessToken, setTokenUser, tokenUser])
+
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken()
@@ -82,7 +106,21 @@ export function AppLayout() {
           }}
         >
           <span style={{ fontSize: 16, fontWeight: 600 }}>工作台</span>
-          <span style={{ color: 'var(--ant-color-text-secondary)' }}>占位：用户 / 退出</span>
+          <Space size="middle">
+            <span style={{ color: 'var(--ant-color-text-secondary)' }}>
+              {tokenUser?.username ? tokenUser.username : '已登录'}
+            </span>
+            <Button
+              type="link"
+              icon={<LogoutOutlined />}
+              onClick={() => {
+                clearAuth()
+                navigate('/login', { replace: true })
+              }}
+            >
+              退出
+            </Button>
+          </Space>
         </Header>
         <Content style={{ margin: 24 }}>
           <div

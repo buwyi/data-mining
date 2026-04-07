@@ -149,6 +149,11 @@ export type ProjectStoreState = {
    * React Flow 用它触发「从 store 重置画布」而避免编辑回流造成循环。
    */
   flowRemoteRevision: number
+  /**
+   * 任意「store 中的 nodes/links 与画布需对齐」时递增（含远端加载、拖入组件新建节点）。
+   * 与 `flowRemoteRevision` 分离，避免每次加节点都触发 fitView。
+   */
+  flowGraphRevision: number
 
   setCurrentProjectId: (id: number | null) => void
   setFlowData: (partial: Partial<FlowDataState>) => void
@@ -162,6 +167,8 @@ export type ProjectStoreState = {
   updateFlowCurrentPath: (payload: { curPathId: string; curPathIndex: string }) => void
   applyPersistedFlow: (doc: PersistedFlowDocument) => void
   setFlowGraph: (nodes: FlowNodeWire[], links: FlowLinkWire[]) => void
+  /** 在保留 links 的前提下追加一个节点（如从组件库拖入） */
+  appendFlowNodeWire: (wire: FlowNodeWire) => void
   /** 对齐 `cleanCurFlowData` */
   resetFlowWorkspace: () => void
   /** 对齐 `getMenuProjectList` + 目录刷新：拉取某目录子节点并挂到树上 */
@@ -181,6 +188,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   flowData: createInitialFlowData(),
   currentProjectId: null,
   flowRemoteRevision: 0,
+  flowGraphRevision: 0,
 
   setCurrentProjectId: (currentProjectId) => set({ currentProjectId }),
 
@@ -225,6 +233,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   applyPersistedFlow: (doc) =>
     set((s) => ({
       flowRemoteRevision: s.flowRemoteRevision + 1,
+      flowGraphRevision: s.flowGraphRevision + 1,
       flowData: {
         ...s.flowData,
         contentStyle: { ...doc.style },
@@ -242,8 +251,18 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       },
     })),
 
+  appendFlowNodeWire: (wire) =>
+    set((s) => ({
+      flowGraphRevision: s.flowGraphRevision + 1,
+      flowData: {
+        ...s.flowData,
+        nodes: [...s.flowData.nodes, wire],
+      },
+    })),
+
   resetFlowWorkspace: () =>
     set((s) => ({
+      flowGraphRevision: s.flowGraphRevision + 1,
       flowData: {
         ...s.flowData,
         currentProjectDetail: null,

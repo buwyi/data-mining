@@ -2,6 +2,8 @@ import { ReloadOutlined } from '@ant-design/icons'
 import { Button, Flex, Result, Spin, Typography } from 'antd'
 import { useEffect, type ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
+import { checkAccessToken } from '../../api/tokenApi'
+import { useAuthStore } from '../../stores/authStore'
 import { useConfigStore } from '../../stores/configStore'
 
 export function AppBootstrap({ children }: { children: ReactNode }) {
@@ -12,6 +14,15 @@ export function AppBootstrap({ children }: { children: ReactNode }) {
   useEffect(() => {
     void load()
   }, [load])
+
+  useEffect(() => {
+    if (status !== 'ready') return
+    const token = useAuthStore.getState().accessToken
+    if (!token) return
+    void checkAccessToken().catch(() => {
+      useAuthStore.getState().clearAuth()
+    })
+  }, [status])
 
   if (status === 'idle' || status === 'loading') {
     return (

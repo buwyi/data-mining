@@ -37,6 +37,19 @@ export function parseAppConfig(raw: unknown): AppRuntimeConfig {
   }
   if (!isNonEmptyString(mode)) throw new Error('缺少或无效字段: mode')
 
+  const componentSystemCatId = o.componentSystemCatId
+  const componentPersonalCatId = o.componentPersonalCatId
+  const oauthClientId = o.oauthClientId
+  if (componentSystemCatId !== undefined && !isFiniteNumber(componentSystemCatId)) {
+    throw new Error('无效字段: componentSystemCatId')
+  }
+  if (componentPersonalCatId !== undefined && !isFiniteNumber(componentPersonalCatId)) {
+    throw new Error('无效字段: componentPersonalCatId')
+  }
+  if (oauthClientId !== undefined && !isNonEmptyString(oauthClientId)) {
+    throw new Error('无效字段: oauthClientId')
+  }
+
   return {
     httpServer,
     httpOauth,
@@ -46,5 +59,8 @@ export function parseAppConfig(raw: unknown): AppRuntimeConfig {
     title,
     databaseUploadFileSize,
     mode,
+    ...(componentSystemCatId !== undefined ? { componentSystemCatId } : {}),
+    ...(componentPersonalCatId !== undefined ? { componentPersonalCatId } : {}),
+    ...(oauthClientId !== undefined ? { oauthClientId } : {}),
   }
 }

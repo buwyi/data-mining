@@ -4,15 +4,18 @@ import {
   SaveOutlined,
   StopOutlined,
 } from '@ant-design/icons'
-import { App, Button, Card, Input, Space, Typography } from 'antd'
+import { App, Button, Card, Col, Input, Row, Space, Typography } from 'antd'
 import { useCallback, useState } from 'react'
+import { ComponentLibraryTree } from '../../components/ComponentLibraryTree'
 import { ProjectFlowCanvas } from '../../components/ProjectFlowCanvas'
+import { useComponentTreeRootIds } from '../../hooks/useComponentTreeRootIds'
 import { useProjectStore } from '../../stores/projectStore'
 
 const { Title, Paragraph } = Typography
 
 export function ProjectPage() {
   const { message } = App.useApp()
+  const { systemRootCatId, personalRootCatId } = useComponentTreeRootIds()
   const [projectIdInput, setProjectIdInput] = useState('')
   const loadProjectFlow = useProjectStore((s) => s.loadProjectFlow)
   const saveCurrentFlow = useProjectStore((s) => s.saveCurrentFlow)
@@ -77,7 +80,7 @@ export function ProjectPage() {
     <Card bordered={false}>
       <Title level={4}>工程 / 流程画布</Title>
       <Paragraph type="secondary">
-        输入工程 ID 从服务端拉取 Flow JSON，在下方 React Flow 中查看与编辑；节点可拖拽、Delete/Backspace
+        输入工程 ID 从服务端拉取 Flow JSON，在下方 React Flow 中查看与编辑；可从左侧组件库拖拽组件到画布新建节点（释放位置即节点坐标）。节点可拖拽、Delete/Backspace
         删除选中项、从输出端口拖到输入端口新建连线。保存时将当前图 POST 为 `content`。运行会先保存再按接口文档调用
         `execute/…/apply` 与 `execute?executionId=`；若响应中带 workFlowId，停止按钮会调用 `shutdown`。
       </Paragraph>
@@ -122,7 +125,19 @@ export function ProjectPage() {
           {isRunning ? ` · 运行中${workFlowId > 0 ? ` · workFlowId ${workFlowId}` : ''}` : ''}
         </Typography.Text>
       </Space>
-      <ProjectFlowCanvas height={560} readOnly={false} />
+
+      <Row gutter={[16, 16]}>
+        <Col flex="0 0 280px" style={{ maxWidth: '100%' }}>
+          <ComponentLibraryTree
+            variant="palette"
+            systemRootCatId={systemRootCatId}
+            personalRootCatId={personalRootCatId}
+          />
+        </Col>
+        <Col flex="1 1 400px" style={{ minWidth: 0 }}>
+          <ProjectFlowCanvas height={560} readOnly={false} />
+        </Col>
+      </Row>
     </Card>
   )
 }

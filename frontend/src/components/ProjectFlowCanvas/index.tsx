@@ -12,8 +12,13 @@ import {
   useReactFlow,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { useCallback, useEffect, useRef } from 'react'
+import { App } from 'antd'
+import { useCallback, useEffect, useRef, type DragEvent } from 'react'
+import { fetchComponentDefinition } from '../../api/componentApi'
+import { fetchNextSequenceId } from '../../api/seqApi'
+import { TIPDM_COMPONENT_DRAG_MIME } from '../../constants/tipdmDrag'
 import {
+  buildFlowNodeWireFromComponent,
   persistedFlowToReactFlow,
   reactFlowToPersistedPayload,
   reconcileInputPortsConnected,
@@ -46,9 +51,13 @@ export type ProjectFlowCanvasProps = {
 }
 
 function ProjectFlowCanvasInner({ height = 520, readOnly = false }: ProjectFlowCanvasProps) {
+  const { message } = App.useApp()
   const flowRemoteRevision = useProjectStore((s) => s.flowRemoteRevision)
+  const flowGraphRevision = useProjectStore((s) => s.flowGraphRevision)
   const pushFlowToStore = useProjectStore((s) => s.setFlowGraph)
+  const appendFlowNodeWire = useProjectStore((s) => s.appendFlowNodeWire)
   const skipNextStoreSyncRef = useRef(false)
+  const { screenToFlowPosition } = useReactFlow()
 
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<TipdmWireRfNode>([])
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<Edge<TipdmEdgeData>>([])
@@ -59,7 +68,7 @@ function ProjectFlowCanvasInner({ height = 520, readOnly = false }: ProjectFlowC
     skipNextStoreSyncRef.current = true
     setRfNodes(next.nodes)
     setRfEdges(next.edges)
-  }, [flowRemoteRevision, setRfEdges, setRfNodes])
+  }, [flowGraphRevision, setRfEdges, setRfNodes])
 
   const syncStoreFromCanvas = useCallback(() => {
     if (readOnly) return
@@ -119,6 +128,36 @@ function ProjectFlowCanvasInner({ height = 520, readOnly = false }: ProjectFlowC
     [readOnly, setRfEdges],
   )
 
+  const onDragOver = useCallback((e: DragEvent) => {
+    if (readOnly) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+  }, [readOnly])
+
+  const onDrop = useCallback(
+    (e: DragEvent) => {
+      e.preventDefault()
+      if (readOnly) return
+      const raw =
+        e.dataTransfer.getData(TIPDM_COMPONENT_DRAG_MIME) || e.dataTransfer.getData('text/plain')
+      const componentDefId = Number(raw)
+      if (!Number.isFinite(componentDefId) || componentDefId <= 0) return
+      const pos = screenToFlowPosition({ x: e.clientX, y: e.clientY })
+      void (async () => {
+        try {
+          const nodeIdStr = await fetchNextSequenceId()
+          const def = await fetchComponentDefinition(componentDefId)
+          const wire = buildFlowNodeWireFromComponent(componentDefId, nodeIdStr, pos, def)
+          appendFlowNodeWire(wire)
+          message.success(`已添加「${String(def.name ?? componentDefId)}」`)
+        } catch (err) {
+          message.error(err instanceof Error ? err.message : '从组件库添加节点失败')
+        }
+      })()
+    },
+    [appendFlowNodeWire, message, readOnly, screenToFlowPosition],
+  )
+
   return (
     <ReactFlow
       nodes={rfNodes}
@@ -126,6 +165,8 @@ function ProjectFlowCanvasInner({ height = 520, readOnly = false }: ProjectFlowC
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={readOnly ? undefined : onConnect}
+      onDragOver={readOnly ? undefined : onDragOver}
+      onDrop={readOnly ? undefined : onDrop}
       nodeTypes={nodeTypes}
       nodesDraggable={!readOnly}
       nodesConnectable={!readOnly}
