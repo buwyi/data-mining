@@ -1,116 +1,260 @@
-import {
-  CloudDownloadOutlined,
-  PlayCircleOutlined,
-  SaveOutlined,
-  StopOutlined,
-} from '@ant-design/icons'
-import { App, Button, Card, Col, Input, Row, Space, Typography } from 'antd'
-import { useCallback, useState } from 'react'
+import { DownOutlined, PlayCircleOutlined, SaveOutlined, StopOutlined } from '@ant-design/icons'
+import { Alert, App, Button, Card, Col, Collapse, Dropdown, Input, Row, Space, Tabs, Typography } from 'antd'
+import type { MenuProps } from 'antd'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
+import type { ProjectExecuteVariant } from '../../api/projectApi'
 import { ComponentLibraryTree } from '../../components/ComponentLibraryTree'
+import { FlowNodePropsPanel } from '../../components/FlowNodePropsPanel'
 import { ProjectFlowCanvas } from '../../components/ProjectFlowCanvas'
+import { ProjectMetadataPanel } from '../../components/ProjectMetadataPanel'
+import { ProjectWorkspaceTree } from '../../components/ProjectWorkspaceTree'
+import { useI18n } from '../../i18n/I18nProvider'
 import { useComponentTreeRootIds } from '../../hooks/useComponentTreeRootIds'
 import { useProjectStore } from '../../stores/projectStore'
+import { pickPositiveProjectIdFromSearchString } from '../../utils/legacyProjectIdQuery'
+import { resolveFlowNodeDisplayNameByJobId } from '../../utils/resolveFlowNodeDisplayNameByJobId'
 
 const { Title, Paragraph } = Typography
 
 export function ProjectPage() {
+  const { t } = useI18n()
   const { message } = App.useApp()
+  const { projectId: projectIdParam } = useParams<{ projectId?: string }>()
+  const navigate = useNavigate()
+  const location = useLocation()
   const { systemRootCatId, personalRootCatId } = useComponentTreeRootIds()
   const [projectIdInput, setProjectIdInput] = useState('')
   const loadProjectFlow = useProjectStore((s) => s.loadProjectFlow)
+  const resetFlowWorkspace = useProjectStore((s) => s.resetFlowWorkspace)
   const saveCurrentFlow = useProjectStore((s) => s.saveCurrentFlow)
-  const runCurrentFlowFull = useProjectStore((s) => s.runCurrentFlowFull)
+  const runCurrentFlowExecute = useProjectStore((s) => s.runCurrentFlowExecute)
   const stopCurrentFlowRun = useProjectStore((s) => s.stopCurrentFlowRun)
   const currentProjectId = useProjectStore((s) => s.currentProjectId)
+  const selectedWireNodeId = useProjectStore((s) => s.selectedWireNodeId)
   const projectChange = useProjectStore((s) => s.flowData.projectChange)
   const isRunning = useProjectStore((s) => s.flowData.isRunning)
   const workFlowId = useProjectStore((s) => s.flowData.workFlowId)
-  const nodeCount = useProjectStore((s) => s.flowData.nodes.length)
+  const flowNodes = useProjectStore((s) => s.flowData.nodes)
+  const socketRunVisual = useProjectStore((s) => s.flowData.socketRunVisual)
+  const nodeCount = flowNodes.length
+  const flowRunSummary = useProjectStore((s) => s.flowData.flowRunSummary)
   const [runActionLoading, setRunActionLoading] = useState(false)
 
-  const onLoad = useCallback(async () => {
-    const id = Number.parseInt(projectIdInput.trim(), 10)
+  const lastRunBanner = useMemo(() => {
+    if (isRunning) return null
+    const st = flowRunSummary.dmLastFlowStatus
+    if (!st) return null
+    const time =
+      flowRunSummary.dmLastFlowFinishedAt != null && flowRunSummary.dmLastFlowFinishedAt.length > 0
+        ? new Date(flowRunSummary.dmLastFlowFinishedAt).toLocaleString()
+        : '—'
+    if (st === 'success') {
+      return (
+        <Alert
+          type="success"
+          showIcon
+          message={t('projectPage.lastRun.success', { time })}
+          style={{ marginBottom: 12 }}
+        />
+      )
+    }
+    if (st === 'failed') {
+      const extra = flowRunSummary.dmLastFlowMessage?.trim()
+        ? ` ${flowRunSummary.dmLastFlowMessage}`
+        : ''
+      return (
+        <Alert
+          type="error"
+          showIcon
+          message={t('projectPage.lastRun.failed', { time, extra })}
+          style={{ marginBottom: 12 }}
+        />
+      )
+    }
+    if (st === 'aborted') {
+      return (
+        <Alert
+          type="warning"
+          showIcon
+          message={t('projectPage.lastRun.aborted', { time })}
+          style={{ marginBottom: 12 }}
+        />
+      )
+    }
+    return null
+  }, [flowRunSummary, isRunning, t])
+
+  const runningNodeDisplayName = useMemo(
+    () =>
+      isRunning && socketRunVisual.nodeId !== ''
+        ? resolveFlowNodeDisplayNameByJobId(flowNodes, socketRunVisual.nodeId)
+        : null,
+    [flowNodes, isRunning, socketRunVisual.nodeId],
+  )
+
+  const runScopedLabel = useMemo(
+    () =>
+      ({
+        endAt: t('projectPage.run.endAt'),
+        only: t('projectPage.run.only'),
+        startAt: t('projectPage.run.startAt'),
+      }) satisfies Record<Exclude<ProjectExecuteVariant, 'full'>, string>,
+    [t],
+  )
+
+  /** 无路径参数时，从 `?projectId=` / `?id=` 等与旧版对齐的 query 解析（规范路由为 `/home/project/:id`） */
+  const legacyIdFromQuery = useMemo(
+    () => (projectIdParam ? null : pickPositiveProjectIdFromSearchString(location.search)),
+    [projectIdParam, location.search],
+  )
+
+  useEffect(() => {
+    if (legacyIdFromQuery === null) return
+    navigate(`/home/project/${legacyIdFromQuery}`, { replace: true })
+  }, [legacyIdFromQuery, navigate])
+
+  useEffect(() => {
+    if (projectIdParam) return
+    if (legacyIdFromQuery !== null) return
+    resetFlowWorkspace()
+  }, [projectIdParam, legacyIdFromQuery, resetFlowWorkspace])
+
+  useEffect(() => {
+    if (!projectIdParam) return
+    const id = Number.parseInt(projectIdParam, 10)
     if (!Number.isFinite(id) || id <= 0) {
-      message.warning('请输入有效的工程 ID（正整数）')
+      navigate('/home/project', { replace: true })
       return
     }
-    try {
-      await loadProjectFlow(id)
-      message.success(`已加载工程 ${id}`)
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : '加载失败')
+    let cancelled = false
+    void loadProjectFlow(id)
+      .then(() => {
+        if (!cancelled) message.success(t('projectPage.msg.loadedProject', { id }))
+      })
+      .catch((e) => {
+        if (!cancelled) message.error(e instanceof Error ? e.message : t('projectPage.msg.loadFailed'))
+      })
+    return () => {
+      cancelled = true
     }
-  }, [projectIdInput, loadProjectFlow, message])
+  }, [projectIdParam, loadProjectFlow, message, navigate, t])
+
+  const onLoadById = useCallback(() => {
+    const id = Number.parseInt(projectIdInput.trim(), 10)
+    if (!Number.isFinite(id) || id <= 0) {
+      message.warning(t('projectPage.warn.invalidProjectId'))
+      return
+    }
+    navigate(`/home/project/${id}`)
+    setProjectIdInput('')
+  }, [projectIdInput, message, navigate, t])
+
+  const onSelectProjectFromTree = useCallback(
+    (id: number) => {
+      navigate(`/home/project/${id}`)
+    },
+    [navigate],
+  )
+
+  const onCurrentProjectRemoved = useCallback(() => {
+    navigate('/home/project', { replace: true })
+  }, [navigate])
 
   const onSave = useCallback(async () => {
     try {
       await saveCurrentFlow()
-      message.success('流程已保存')
+      message.success(t('projectPage.msg.flowSaved'))
     } catch (e) {
-      message.error(e instanceof Error ? e.message : '保存失败')
+      message.error(e instanceof Error ? e.message : t('projectPage.msg.saveFailed'))
     }
-  }, [saveCurrentFlow, message])
+  }, [saveCurrentFlow, message, t])
 
-  const onRunFull = useCallback(async () => {
-    setRunActionLoading(true)
-    try {
-      await runCurrentFlowFull()
-      message.success('已保存并提交全流程运行')
-    } catch (e) {
-      message.error(e instanceof Error ? e.message : '运行失败')
-    } finally {
-      setRunActionLoading(false)
-    }
-  }, [runCurrentFlowFull, message])
+  const onRunVariant = useCallback(
+    async (variant: ProjectExecuteVariant) => {
+      setRunActionLoading(true)
+      try {
+        await runCurrentFlowExecute(variant)
+        const sid = useProjectStore.getState().selectedWireNodeId
+        if (variant === 'full') {
+          message.success(t('projectPage.msg.runFullSubmitted'))
+        } else {
+          message.success(
+            t('projectPage.msg.runScopedSubmitted', {
+              label: runScopedLabel[variant],
+              nodeId: sid != null ? String(sid) : '—',
+            }),
+          )
+        }
+      } catch (e) {
+        message.error(e instanceof Error ? e.message : t('projectPage.msg.runFailed'))
+      } finally {
+        setRunActionLoading(false)
+      }
+    },
+    [runCurrentFlowExecute, message, runScopedLabel, t],
+  )
+
+  const runMenuItems: MenuProps['items'] = useMemo(
+    () => [
+      {
+        key: 'endAt',
+        label: t('projectPage.run.menuEndAt'),
+        disabled: !selectedWireNodeId,
+      },
+      {
+        key: 'only',
+        label: t('projectPage.run.menuOnly'),
+        disabled: !selectedWireNodeId,
+      },
+      {
+        key: 'startAt',
+        label: t('projectPage.run.menuStartAt'),
+        disabled: !selectedWireNodeId,
+      },
+    ],
+    [selectedWireNodeId, t],
+  )
 
   const onStopRun = useCallback(async () => {
-    const hadWorkFlowId = useProjectStore.getState().flowData.workFlowId > 0
+    const wf = useProjectStore.getState().flowData.workFlowId
+    const hadWorkFlowId = wf != null && String(wf).length > 0
     setRunActionLoading(true)
     try {
       await stopCurrentFlowRun()
-      message.success(hadWorkFlowId ? '已请求停止运行' : '已清除本地运行状态')
+      message.success(
+        hadWorkFlowId ? t('projectPage.msg.stopRequested') : t('projectPage.msg.stopLocalCleared'),
+      )
     } catch (e) {
-      message.error(e instanceof Error ? e.message : '停止失败')
+      message.error(e instanceof Error ? e.message : t('projectPage.msg.stopFailed'))
     } finally {
       setRunActionLoading(false)
     }
-  }, [stopCurrentFlowRun, message])
+  }, [stopCurrentFlowRun, message, t])
 
   return (
     <Card bordered={false}>
-      <Title level={4}>工程 / 流程画布</Title>
-      <Paragraph type="secondary">
-        输入工程 ID 从服务端拉取 Flow JSON，在下方 React Flow 中查看与编辑；可从左侧组件库拖拽组件到画布新建节点（释放位置即节点坐标）。节点可拖拽、Delete/Backspace
-        删除选中项、从输出端口拖到输入端口新建连线。保存时将当前图 POST 为 `content`。运行会先保存再按接口文档调用
-        `execute/…/apply` 与 `execute?executionId=`；若响应中带 workFlowId，停止按钮会调用 `shutdown`。
+      <Title level={4}>{t('projectPage.title')}</Title>
+      <Paragraph type="secondary" style={{ marginBottom: 16 }}>
+        {t('projectPage.intro')}
       </Paragraph>
       <Space wrap style={{ marginBottom: 16 }}>
-        <Input
-          placeholder="工程 ID"
-          style={{ width: 160 }}
-          value={projectIdInput}
-          onChange={(e) => setProjectIdInput(e.target.value)}
-          onPressEnter={() => void onLoad()}
-        />
-        <Button
-          type="primary"
-          icon={<CloudDownloadOutlined />}
-          loading={projectChange}
-          onClick={() => void onLoad()}
-        >
-          加载工程
-        </Button>
         <Button icon={<SaveOutlined />} onClick={() => void onSave()} disabled={!currentProjectId}>
-          保存流程
+          {t('projectPage.saveFlow')}
         </Button>
-        <Button
-          icon={<PlayCircleOutlined />}
+        <Dropdown.Button
+          type="primary"
+          icon={<DownOutlined />}
+          menu={{
+            items: runMenuItems,
+            onClick: ({ key }) => void onRunVariant(key as ProjectExecuteVariant),
+          }}
           loading={runActionLoading}
           disabled={!currentProjectId}
-          onClick={() => void onRunFull()}
+          onClick={() => void onRunVariant('full')}
         >
-          运行（全流程）
-        </Button>
+          <PlayCircleOutlined /> {t('projectPage.runFull')}
+        </Dropdown.Button>
         <Button
           danger
           icon={<StopOutlined />}
@@ -118,24 +262,105 @@ export function ProjectPage() {
           disabled={!currentProjectId || !isRunning}
           onClick={() => void onStopRun()}
         >
-          停止
+          {t('projectPage.stop')}
         </Button>
         <Typography.Text type="secondary">
-          当前工程：{currentProjectId ?? '—'} · 节点数：{nodeCount}
-          {isRunning ? ` · 运行中${workFlowId > 0 ? ` · workFlowId ${workFlowId}` : ''}` : ''}
+          {t('projectPage.status.current')}
+          {currentProjectId ?? '—'}
+          {t('projectPage.status.nodes')}
+          {nodeCount}
+          {projectChange ? t('projectPage.status.loading') : ''}
+          {isRunning ? t('projectPage.status.running') : ''}
+          {runningNodeDisplayName !== null
+            ? t('projectPage.status.runningNode', { name: runningNodeDisplayName })
+            : ''}
+          {isRunning && workFlowId != null && String(workFlowId).length > 0
+            ? t('projectPage.status.workFlowId', { id: String(workFlowId) })
+            : ''}
         </Typography.Text>
       </Space>
+      {lastRunBanner}
+
+      <Collapse
+        ghost
+        style={{ marginBottom: 12 }}
+        items={[
+          {
+            key: 'metadata',
+            label: t('projectPage.collapse.metadata'),
+            children: <ProjectMetadataPanel />,
+          },
+          {
+            key: 'by-id',
+            label: t('projectPage.collapse.byId'),
+            children: (
+              <Space wrap>
+                <Input
+                  placeholder={t('projectPage.placeholderProjectId')}
+                  style={{ width: 160 }}
+                  value={projectIdInput}
+                  onChange={(e) => setProjectIdInput(e.target.value)}
+                  onPressEnter={() => void onLoadById()}
+                />
+                <Button type="default" loading={projectChange} onClick={() => void onLoadById()}>
+                  {t('projectPage.load')}
+                </Button>
+              </Space>
+            ),
+          },
+        ]}
+      />
 
       <Row gutter={[16, 16]}>
-        <Col flex="0 0 280px" style={{ maxWidth: '100%' }}>
-          <ComponentLibraryTree
-            variant="palette"
-            systemRootCatId={systemRootCatId}
-            personalRootCatId={personalRootCatId}
+        <Col flex="0 0 300px" style={{ maxWidth: '100%' }}>
+          <Tabs
+            size="small"
+            items={[
+              {
+                key: 'projects',
+                label: t('menu.project'),
+                children: (
+                  <ProjectWorkspaceTree
+                    currentProjectId={currentProjectId}
+                    onSelectProject={onSelectProjectFromTree}
+                    onCurrentProjectRemoved={onCurrentProjectRemoved}
+                  />
+                ),
+              },
+              {
+                key: 'components',
+                label: t('componentTree.card.default'),
+                children: (
+                  <ComponentLibraryTree
+                    variant="palette"
+                    systemRootCatId={systemRootCatId}
+                    personalRootCatId={personalRootCatId}
+                  />
+                ),
+              },
+            ]}
           />
         </Col>
-        <Col flex="1 1 400px" style={{ minWidth: 0 }}>
+        <Col flex="1 1 380px" style={{ minWidth: 0 }}>
           <ProjectFlowCanvas height={560} readOnly={false} />
+        </Col>
+        <Col flex="0 0 320px" style={{ maxWidth: '100%' }}>
+          <Card
+            size="small"
+            type="inner"
+            styles={{
+              body: {
+                height: 560,
+                maxHeight: 560,
+                display: 'flex',
+                flexDirection: 'column',
+                padding: 0,
+                overflow: 'hidden',
+              },
+            }}
+          >
+            <FlowNodePropsPanel />
+          </Card>
         </Col>
       </Row>
     </Card>

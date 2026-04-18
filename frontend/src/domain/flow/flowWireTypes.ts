@@ -28,12 +28,22 @@ export type FlowLinkWire = {
  */
 export type FlowNodeWire = Record<string, unknown>
 
+/** 最近一次整流程运行结果（持久化在工程 JSON 根级） */
+export type DmFlowRunStatus = 'success' | 'failed' | 'aborted'
+
+export type FlowRunSummaryPersist = {
+  dmLastFlowStatus?: DmFlowRunStatus
+  dmLastFlowFinishedAt?: string
+  dmLastFlowMessage?: string
+}
+
 /**
  * 解析工程 `data.json` 后的文档（可含服务端附加的 `summary`，保存时通常只写 style/nodes/links）。
+ * `dmLastFlow*` 为本站扩展：记录最近一次整流程运行结果，便于再次打开工程时识别。
  */
 export type PersistedFlowDocument = {
   style: FlowCanvasStyle
   nodes: FlowNodeWire[]
   links: FlowLinkWire[]
   summary?: unknown[]
-}
+} & FlowRunSummaryPersist

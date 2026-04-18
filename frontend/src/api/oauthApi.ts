@@ -1,3 +1,4 @@
+import { resolveOauthAccessTokenPath } from '../config/accessTokenRuntime'
 import { useConfigStore } from '../stores/configStore'
 
 function getOauthBase(): string {
@@ -14,25 +15,27 @@ export type ExchangeCodeParams = {
 }
 
 /**
- * `POST {httpOauth}/accessToken`（与 api-doc 4.1 一致，请求体为 JSON）。
- * 响应一般为 OAuth 标准字段 `access_token`。
+ * `POST {httpOauth}/{oauthAccessTokenPath}`（路径默认 `accessToken`，可由 `config.json` 或 `VITE_OAUTH_ACCESS_TOKEN_PATH` 覆盖）
+ * 使用 `application/x-www-form-urlencoded`，与 TipDM Vue（jQuery ajax）及 Apache Oltu `OAuthTokenRequest` 一致。
  */
 export async function exchangeAuthorizationCode(
   params: ExchangeCodeParams,
   init?: { signal?: AbortSignal },
 ): Promise<string> {
-  const url = `${getOauthBase()}/accessToken`
+  const path = resolveOauthAccessTokenPath()
+  const url = `${getOauthBase()}/${path}`
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    client_id: params.clientId,
+    client_secret: params.clientSecret,
+    code: params.code,
+    redirect_uri: params.redirectUri,
+  })
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8' },
     signal: init?.signal,
-    body: JSON.stringify({
-      grant_type: 'authorization_code',
-      client_id: params.clientId,
-      client_secret: params.clientSecret,
-      code: params.code,
-      redirect_uri: params.redirectUri,
-    }),
+    body: body.toString(),
   })
   let json: unknown
   try {

@@ -50,6 +50,76 @@ export function parseAppConfig(raw: unknown): AppRuntimeConfig {
     throw new Error('无效字段: oauthClientId')
   }
 
+  const accessTokenStorageKey = o.accessTokenStorageKey
+  const accessTokenHeaderName = o.accessTokenHeaderName
+  const accessTokenHeaderPrefix = o.accessTokenHeaderPrefix
+  const shareAccessTokenQueryParams = o.shareAccessTokenQueryParams
+  const oauthAccessTokenPath = o.oauthAccessTokenPath
+  const socketAccessTokenQueryParam = o.socketAccessTokenQueryParam
+  const tipdmLogHome = o.tipdmLogHome
+
+  if (accessTokenStorageKey !== undefined && !isNonEmptyString(accessTokenStorageKey)) {
+    throw new Error('无效字段: accessTokenStorageKey')
+  }
+  if (accessTokenHeaderName !== undefined && !isNonEmptyString(accessTokenHeaderName)) {
+    throw new Error('无效字段: accessTokenHeaderName')
+  }
+  if (accessTokenHeaderPrefix !== undefined && typeof accessTokenHeaderPrefix !== 'string') {
+    throw new Error('无效字段: accessTokenHeaderPrefix')
+  }
+  if (shareAccessTokenQueryParams !== undefined) {
+    if (!Array.isArray(shareAccessTokenQueryParams)) {
+      throw new Error('无效字段: shareAccessTokenQueryParams（应为字符串数组）')
+    }
+    for (const item of shareAccessTokenQueryParams) {
+      if (!isNonEmptyString(item)) {
+        throw new Error('无效字段: shareAccessTokenQueryParams（元素须为非空字符串）')
+      }
+    }
+  }
+  if (oauthAccessTokenPath !== undefined) {
+    if (!isNonEmptyString(oauthAccessTokenPath)) {
+      throw new Error('无效字段: oauthAccessTokenPath')
+    }
+    const norm = oauthAccessTokenPath.trim().replace(/^\/+/, '')
+    if (norm.includes('..')) {
+      throw new Error('无效字段: oauthAccessTokenPath（不允许 ..）')
+    }
+  }
+  if (socketAccessTokenQueryParam !== undefined && !isNonEmptyString(socketAccessTokenQueryParam)) {
+    throw new Error('无效字段: socketAccessTokenQueryParam')
+  }
+  if (tipdmLogHome !== undefined && !isNonEmptyString(tipdmLogHome)) {
+    throw new Error('无效字段: tipdmLogHome')
+  }
+
+  const themeRaw = o.theme
+  let theme: AppRuntimeConfig['theme'] | undefined
+  if (themeRaw !== undefined) {
+    if (themeRaw === null || typeof themeRaw !== 'object' || Array.isArray(themeRaw)) {
+      throw new Error('无效字段: theme（应为对象）')
+    }
+    const tm = themeRaw as Record<string, unknown>
+    const next: NonNullable<AppRuntimeConfig['theme']> = {}
+    if ('colorPrimary' in tm) {
+      if (!isNonEmptyString(tm.colorPrimary)) {
+        throw new Error('无效字段: theme.colorPrimary')
+      }
+      next.colorPrimary = tm.colorPrimary.trim()
+    }
+    if ('borderRadius' in tm) {
+      const br = tm.borderRadius
+      if (!isFiniteNumber(br) || br < 0 || br > 64) {
+        throw new Error('无效字段: theme.borderRadius（应为 0–64 的数字）')
+      }
+      next.borderRadius = br
+    }
+    if (Object.keys(next).length > 0) theme = next
+    else if (Object.keys(tm).length > 0) {
+      throw new Error('无效字段: theme（含无法识别的键）')
+    }
+  }
+
   return {
     httpServer,
     httpOauth,
@@ -62,5 +132,13 @@ export function parseAppConfig(raw: unknown): AppRuntimeConfig {
     ...(componentSystemCatId !== undefined ? { componentSystemCatId } : {}),
     ...(componentPersonalCatId !== undefined ? { componentPersonalCatId } : {}),
     ...(oauthClientId !== undefined ? { oauthClientId } : {}),
+    ...(accessTokenStorageKey !== undefined ? { accessTokenStorageKey } : {}),
+    ...(accessTokenHeaderName !== undefined ? { accessTokenHeaderName } : {}),
+    ...(accessTokenHeaderPrefix !== undefined ? { accessTokenHeaderPrefix } : {}),
+    ...(shareAccessTokenQueryParams !== undefined ? { shareAccessTokenQueryParams } : {}),
+    ...(oauthAccessTokenPath !== undefined ? { oauthAccessTokenPath } : {}),
+    ...(socketAccessTokenQueryParam !== undefined ? { socketAccessTokenQueryParam } : {}),
+    ...(tipdmLogHome !== undefined ? { tipdmLogHome: tipdmLogHome.trim() } : {}),
+    ...(theme !== undefined ? { theme } : {}),
   }
 }

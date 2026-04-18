@@ -1,6 +1,7 @@
 import { App, Form, Input, Modal } from 'antd'
 import { useEffect, useState } from 'react'
 import { fetchComponentDefinition, updateComponentDefinition } from '../../api/componentApi'
+import { useI18n } from '../../i18n/I18nProvider'
 import type { ComponentDefinitionDto } from '../../types/component'
 
 export type ComponentScriptModalProps = {
@@ -11,6 +12,7 @@ export type ComponentScriptModalProps = {
 }
 
 export function ComponentScriptModal({ open, componentId, onClose, onSaved }: ComponentScriptModalProps) {
+  const { t } = useI18n()
   const { message } = App.useApp()
   const [form] = Form.useForm<{ main: string }>()
   const [loading, setLoading] = useState(false)
@@ -36,7 +38,7 @@ export function ComponentScriptModal({ open, componentId, onClose, onSaved }: Co
         form.setFieldsValue({ main })
       })
       .catch((e: unknown) => {
-        if (!cancelled) message.error(e instanceof Error ? e.message : '加载组件失败')
+        if (!cancelled) message.error(e instanceof Error ? e.message : t('scriptModal.msg.loadFailed'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -44,7 +46,7 @@ export function ComponentScriptModal({ open, componentId, onClose, onSaved }: Co
     return () => {
       cancelled = true
     }
-  }, [open, componentId, form, message])
+  }, [open, componentId, form, message, t])
 
   const handleOk = async () => {
     if (componentId == null || !snapshot) return
@@ -59,11 +61,11 @@ export function ComponentScriptModal({ open, componentId, onClose, onSaved }: Co
         },
       }
       await updateComponentDefinition(componentId, next)
-      message.success('脚本已保存')
+      message.success(t('scriptModal.msg.saved'))
       onSaved?.()
       onClose()
     } catch (e: unknown) {
-      message.error(e instanceof Error ? e.message : '保存失败')
+      message.error(e instanceof Error ? e.message : t('scriptModal.msg.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -71,11 +73,11 @@ export function ComponentScriptModal({ open, componentId, onClose, onSaved }: Co
 
   return (
     <Modal
-      title="编辑脚本（MAIN）"
+      title={t('componentsPage.btn.scriptMain')}
       open={open}
       onCancel={onClose}
       onOk={() => void handleOk()}
-      okText="保存"
+      okText={t('scriptModal.okSave')}
       confirmLoading={saving}
       width="min(900px, 94vw)"
       destroyOnHidden
@@ -87,14 +89,10 @@ export function ComponentScriptModal({ open, componentId, onClose, onSaved }: Co
       }}
     >
       <Form form={form} layout="vertical" style={{ marginTop: 8 }}>
-        <Form.Item
-          name="main"
-          label="script.MAIN"
-          extra="保存时将连同当前组件其它字段一并提交（先 GET 再 PUT，与旧版一致）。"
-        >
+        <Form.Item name="main" label={t('scriptModal.fieldLabel')} extra={t('scriptModal.extra')}>
           <Input.TextArea
             rows={16}
-            placeholder="组件主脚本内容"
+            placeholder={t('scriptModal.placeholder')}
             disabled={loading || componentId == null}
             style={{ fontFamily: 'ui-monospace, monospace', fontSize: 13 }}
           />

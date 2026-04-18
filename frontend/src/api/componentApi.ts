@@ -1,5 +1,6 @@
 import type { ApiResult } from '../types/apiResult'
 import type { CatChildNodeDto, ComponentDefinitionDto } from '../types/component'
+import { buildComponentPutBody } from '../utils/componentPutBody'
 import { apiFetch } from './httpClient'
 
 async function readApiResult<T>(res: Response): Promise<T> {
@@ -100,12 +101,13 @@ export async function fetchComponentDefinition(componentId: number): Promise<Com
   return data as ComponentDefinitionDto
 }
 
-/** `PUT /api/component/{componentId}` */
+/** `PUT /api/component/{componentId}` — 请求体经 `buildComponentPutBody` 与 TipDM `dto.Component` 对齐 */
 export async function updateComponentDefinition(
   componentId: number,
   body: ComponentDefinitionDto,
 ): Promise<void> {
-  const res = await apiFetch(`/api/component/${componentId}`, { method: 'PUT', body })
+  const payload = buildComponentPutBody(body)
+  const res = await apiFetch(`/api/component/${componentId}`, { method: 'PUT', body: payload })
   if (!res.ok) {
     throw new Error(`保存组件失败：${res.status} ${res.statusText}`)
   }
@@ -119,4 +121,54 @@ export async function deleteComponent(componentId: number): Promise<void> {
     throw new Error(`删除组件失败：${res.status} ${res.statusText}`)
   }
   await readApiResult<unknown>(res)
+}
+
+/** `DELETE /api/element/{eleId}` — 删除组件定义中某一参数项（见 api-doc 7.4） */
+export async function deleteComponentElement(eleId: number): Promise<void> {
+  const res = await apiFetch(`/api/element/${eleId}`, { method: 'DELETE' })
+  if (!res.ok) {
+    throw new Error(`删除参数项失败：${res.status} ${res.statusText}`)
+  }
+  await readApiResult<unknown>(res)
+}
+
+/** 将多种后端列表形态归一为对象数组 */
+function normalizeToObjectArray(raw: unknown): Record<string, unknown>[] {
+  const take = (arr: unknown): Record<string, unknown>[] => {
+    if (!Array.isArray(arr)) return []
+    return arr.filter(
+      (x): x is Record<string, unknown> => x !== null && typeof x === 'object' && !Array.isArray(x),
+    )
+  }
+  if (raw === null || raw === undefined) return []
+  if (Array.isArray(raw)) return take(raw)
+  if (typeof raw === 'object') {
+    const o = raw as Record<string, unknown>
+    for (const key of ['data', 'list', 'records', 'rows', 'content'] as const) {
+      const inner = o[key]
+      const rows = take(inner)
+      if (rows.length > 0) return rows
+    }
+  }
+  return []
+}
+
+/** `GET /api/widget/list` — 控件类型等辅助数据 */
+export async function fetchWidgetList(): Promise<Record<string, unknown>[]> {
+  const res = await apiFetch('/api/widget/list')
+  if (!res.ok) {
+    throw new Error(`获取控件列表失败：${res.status} ${res.statusText}`)
+  }
+  const data = await readApiResult<unknown>(res)
+  return normalizeToObjectArray(data)
+}
+
+/** `GET /api/algorithm/list` — 算法列表等辅助数据 */
+export async function fetchAlgorithmList(): Promise<Record<string, unknown>[]> {
+  const res = await apiFetch('/api/algorithm/list')
+  if (!res.ok) {
+    throw new Error(`获取算法列表失败：${res.status} ${res.statusText}`)
+  }
+  const data = await readApiResult<unknown>(res)
+  return normalizeToObjectArray(data)
 }

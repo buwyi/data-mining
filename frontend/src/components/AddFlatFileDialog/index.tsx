@@ -214,9 +214,6 @@ export function AddFlatFileDialog({ open, onClose, onSuccess }: AddFlatFileDialo
         file,
         delimiter: v.delimiter,
         encoding: v.encoding,
-        fileMD5: fileMd5,
-        tableName,
-        header: v.firstRowAsColumnName ? 'true' : 'false',
       })
       message.success('文件上传成功')
       onSuccess?.()

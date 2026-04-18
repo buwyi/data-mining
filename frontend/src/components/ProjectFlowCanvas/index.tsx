@@ -1,10 +1,13 @@
+import { MinusOutlined, PlusOutlined } from '@ant-design/icons'
 import {
   addEdge,
   Background,
   Controls,
   type Connection,
   type Edge,
+  type NodeChange,
   MiniMap,
+  Panel,
   ReactFlow,
   ReactFlowProvider,
   useEdgesState,
@@ -12,7 +15,7 @@ import {
   useReactFlow,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { App } from 'antd'
+import { App, Button, Space, Typography } from 'antd'
 import { useCallback, useEffect, useRef, type DragEvent } from 'react'
 import { fetchComponentDefinition } from '../../api/componentApi'
 import { fetchNextSequenceId } from '../../api/seqApi'
@@ -27,20 +30,90 @@ import {
   type TipdmWireRfNode,
 } from '../../domain/flow'
 import { useProjectStore } from '../../stores/projectStore'
+import { FlowNodeContextMenu } from '../FlowNodeContextMenu'
 import { TipdmWireNode } from '../TipdmWireNode'
 
 const nodeTypes = { [TIPDM_WIRE_NODE_TYPE]: TipdmWireNode }
 
+/** 与旧版 `WorkHeader` 一致：画布「缩放」百分比存 `style.height`，范围 100–290 */
+const CANVAS_ZOOM_MIN_PCT = 100
+const CANVAS_ZOOM_MAX_PCT = 290
+const CANVAS_ZOOM_STEP = 10
+
 function FitViewOnRemoteRevision({ revision }: { revision: number }) {
-  const { fitView } = useReactFlow()
+  const { fitView, zoomTo } = useReactFlow()
+  const heightPct = useProjectStore((s) => s.flowData.contentStyle.height)
   useEffect(() => {
     if (revision === 0) return
-    const id = requestAnimationFrame(() => {
-      fitView({ padding: 0.15, duration: 200 })
+    let timeoutId: number | undefined
+    const rafId = requestAnimationFrame(() => {
+      void fitView({ padding: 0.15, duration: 200 })
+      timeoutId = window.setTimeout(() => {
+        const z = Math.min(CANVAS_ZOOM_MAX_PCT / 100, Math.max(CANVAS_ZOOM_MIN_PCT / 100, heightPct / 100))
+        zoomTo(z, { duration: 150 })
+      }, 220)
     })
-    return () => cancelAnimationFrame(id)
-  }, [revision, fitView])
+    return () => {
+      cancelAnimationFrame(rafId)
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId)
+    }
+  }, [revision, fitView, zoomTo, heightPct])
   return null
+}
+
+function FlowCanvasZoomPanel({ readOnly }: { readOnly: boolean }) {
+  const heightPct = useProjectStore((s) => s.flowData.contentStyle.height)
+  const setFlowData = useProjectStore((s) => s.setFlowData)
+  const { zoomTo } = useReactFlow()
+
+  const adjust = useCallback(
+    (delta: number) => {
+      if (readOnly) return
+      const s = useProjectStore.getState().flowData.contentStyle
+      const next = Math.min(CANVAS_ZOOM_MAX_PCT, Math.max(CANVAS_ZOOM_MIN_PCT, s.height + delta))
+      setFlowData({
+        contentStyle: { ...s, height: next },
+      })
+      zoomTo(next / 100, { duration: 120 })
+    },
+    [readOnly, setFlowData, zoomTo],
+  )
+
+  return (
+    <Panel position="top-left">
+      <Space
+        align="center"
+        size={2}
+        style={{
+          background: 'rgba(255,255,255,0.96)',
+          padding: '2px 6px',
+          borderRadius: 6,
+          border: '1px solid #f0f0f0',
+          boxShadow: '0 1px 4px rgb(0 0 0 / 8%)',
+        }}
+      >
+        <Button
+          type="text"
+          size="small"
+          icon={<MinusOutlined />}
+          disabled={readOnly || heightPct <= CANVAS_ZOOM_MIN_PCT}
+          onClick={() => adjust(-CANVAS_ZOOM_STEP)}
+          title="缩小"
+        />
+        <Typography.Text type="secondary" style={{ minWidth: 42, textAlign: 'center', fontSize: 12, userSelect: 'none' }}>
+          {heightPct}%
+        </Typography.Text>
+        <Button
+          type="text"
+          size="small"
+          icon={<PlusOutlined />}
+          disabled={readOnly || heightPct >= CANVAS_ZOOM_MAX_PCT}
+          onClick={() => adjust(CANVAS_ZOOM_STEP)}
+          title="放大"
+        />
+      </Space>
+    </Panel>
+  )
 }
 
 export type ProjectFlowCanvasProps = {
@@ -48,6 +121,8 @@ export type ProjectFlowCanvasProps = {
   height?: number
   /** 只读：不可拖拽、连线、选择、删除 */
   readOnly?: boolean
+  /** 全屏预览等场景：去掉圆角与描边 */
+  borderless?: boolean
 }
 
 function ProjectFlowCanvasInner({ height = 520, readOnly = false }: ProjectFlowCanvasProps) {
@@ -57,16 +132,37 @@ function ProjectFlowCanvasInner({ height = 520, readOnly = false }: ProjectFlowC
   const pushFlowToStore = useProjectStore((s) => s.setFlowGraph)
   const appendFlowNodeWire = useProjectStore((s) => s.appendFlowNodeWire)
   const skipNextStoreSyncRef = useRef(false)
-  const { screenToFlowPosition } = useReactFlow()
+  const { screenToFlowPosition, getNodes } = useReactFlow()
 
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<TipdmWireRfNode>([])
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<Edge<TipdmEdgeData>>([])
 
+  const handleNodesChange = useCallback(
+    (changes: NodeChange<TipdmWireRfNode>[]) => {
+      onNodesChange(changes)
+      if (readOnly) return
+      queueMicrotask(() => {
+        const list = getNodes()
+        const picked = list.filter((n) => n.selected)
+        const nextId =
+          picked.length >= 1 ? String(picked[0].id) : null
+        useProjectStore.getState().setSelectedWireNodeId(nextId)
+      })
+    },
+    [getNodes, onNodesChange, readOnly],
+  )
+
   useEffect(() => {
     const { nodes, links } = useProjectStore.getState().flowData
+    const sid = useProjectStore.getState().selectedWireNodeId
     const next = persistedFlowToReactFlow({ nodes, links })
     skipNextStoreSyncRef.current = true
-    setRfNodes(next.nodes)
+    setRfNodes(
+      next.nodes.map((n) => ({
+        ...n,
+        selected: sid !== null && n.id === sid,
+      })),
+    )
     setRfEdges(next.edges)
   }, [flowGraphRevision, setRfEdges, setRfNodes])
 
@@ -159,43 +255,47 @@ function ProjectFlowCanvasInner({ height = 520, readOnly = false }: ProjectFlowC
   )
 
   return (
-    <ReactFlow
-      nodes={rfNodes}
-      edges={rfEdges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      onConnect={readOnly ? undefined : onConnect}
-      onDragOver={readOnly ? undefined : onDragOver}
-      onDrop={readOnly ? undefined : onDrop}
-      nodeTypes={nodeTypes}
-      nodesDraggable={!readOnly}
-      nodesConnectable={!readOnly}
-      elementsSelectable={!readOnly}
-      edgesReconnectable={!readOnly}
-      panOnDrag
-      zoomOnScroll
-      minZoom={0.15}
-      maxZoom={1.8}
-      deleteKeyCode={readOnly ? undefined : ['Backspace', 'Delete']}
-      proOptions={{ hideAttribution: true }}
-      style={{ height }}
-    >
-      <Background gap={16} size={1} />
-      <Controls showInteractive={!readOnly} />
-      {!readOnly ? <MiniMap pannable zoomable /> : null}
-      <FitViewOnRemoteRevision revision={flowRemoteRevision} />
-    </ReactFlow>
+    <>
+      <ReactFlow
+        nodes={rfNodes}
+        edges={rfEdges}
+        onNodesChange={handleNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={readOnly ? undefined : onConnect}
+        onDragOver={readOnly ? undefined : onDragOver}
+        onDrop={readOnly ? undefined : onDrop}
+        nodeTypes={nodeTypes}
+        nodesDraggable={!readOnly}
+        nodesConnectable={!readOnly}
+        elementsSelectable={!readOnly}
+        edgesReconnectable={!readOnly}
+        panOnDrag
+        zoomOnScroll
+        minZoom={0.15}
+        maxZoom={CANVAS_ZOOM_MAX_PCT / 100}
+        deleteKeyCode={readOnly ? undefined : ['Backspace', 'Delete']}
+        proOptions={{ hideAttribution: true }}
+        style={{ height }}
+      >
+        <Background gap={16} size={1} />
+        <FlowCanvasZoomPanel readOnly={readOnly} />
+        <Controls showInteractive={!readOnly} />
+        {!readOnly ? <MiniMap pannable zoomable /> : null}
+        <FitViewOnRemoteRevision revision={flowRemoteRevision} />
+      </ReactFlow>
+      <FlowNodeContextMenu readOnly={readOnly} />
+    </>
   )
 }
 
 export function ProjectFlowCanvas(props: ProjectFlowCanvasProps) {
-  const { height = 520 } = props
+  const { height = 520, borderless = false } = props
   return (
     <div
       style={{
         height,
-        border: '1px solid #f0f0f0',
-        borderRadius: 8,
+        border: borderless ? 'none' : '1px solid #f0f0f0',
+        borderRadius: borderless ? 0 : 8,
         overflow: 'hidden',
       }}
     >

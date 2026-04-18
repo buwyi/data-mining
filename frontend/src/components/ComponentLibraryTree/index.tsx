@@ -1,7 +1,15 @@
 import { App, Card, Form, Input, Menu, Modal, Tree, Typography } from 'antd'
-import type { MenuProps } from 'antd'
+import type { MenuProps, TreeProps } from 'antd'
 import type { DataNode, EventDataNode } from 'antd/es/tree'
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import {
   createCat,
   deleteCat,
@@ -11,11 +19,23 @@ import {
   patchCatName,
 } from '../../api/componentApi'
 import { TIPDM_COMPONENT_DRAG_MIME } from '../../constants/tipdmDrag'
+import { useI18n } from '../../i18n/I18nProvider'
 import type { CatChildNodeDto, ComponentDefinitionDto } from '../../types/component'
 import { ComponentDetailDrawer } from './ComponentDetailDrawer'
 import { ComponentScriptModal } from './ComponentScriptModal'
 
 const { Text } = Typography
+
+/** 管理页（`/home/components`）左键选中树节点时，供右侧工作台展示 */
+export type ComponentWorkbenchSelection =
+  | null
+  | { kind: 'cat'; catId: number; title: string }
+  | { kind: 'comp'; componentId: number; title: string }
+
+export type ComponentLibraryTreeHandle = {
+  openDetail: (componentId: number) => Promise<void>
+  openScript: (componentId: number) => void
+}
 
 export type ComponentLibraryTreeProps = {
   systemRootCatId: number
@@ -25,11 +45,16 @@ export type ComponentLibraryTreeProps = {
    * `palette`：工程页侧栏，组件节点可拖到画布。
    */
   variant?: 'manage' | 'palette'
+  /** 仅 `manage`：单选变化时回调（与右键菜单无关） */
+  onWorkbenchSelectionChange?: (selection: ComponentWorkbenchSelection) => void
 }
 
 type CtxTarget =
   | { kind: 'cat'; key: React.Key; catId: number; title: string }
   | { kind: 'comp'; key: React.Key; componentId: number; title: string }
+
+/** 根节点可用非 `cat-{id}` 的 key，通过 `catLoadId` 指定请求 `GET /api/cat/{id}/childs` 的 id */
+type CatTreeDataNode = DataNode & { catLoadId?: number }
 
 function parseTreeKey(key: React.Key): { kind: 'cat' | 'comp'; id: number } | null {
   const s = String(key)
@@ -42,6 +67,13 @@ function parseTreeKey(key: React.Key): { kind: 'cat' | 'comp'; id: number } | nu
     return Number.isFinite(id) ? { kind: 'comp', id } : null
   }
   return null
+}
+
+function resolveCatApiId(node: EventDataNode<DataNode>): number | null {
+  const ext = node as EventDataNode<CatTreeDataNode>
+  if (typeof ext.catLoadId === 'number' && Number.isFinite(ext.catLoadId)) return ext.catLoadId
+  const p = parseTreeKey(node.key)
+  return p?.kind === 'cat' ? p.id : null
 }
 
 function updateTreeData(list: DataNode[], nodeKey: React.Key, children: DataNode[]): DataNode[] {
@@ -93,18 +125,26 @@ function resolveTreeTitle(node: DataNode): ReactNode {
   return t
 }
 
-export function ComponentLibraryTree({
-  systemRootCatId,
-  personalRootCatId,
-  variant = 'manage',
-}: ComponentLibraryTreeProps) {
+export const ComponentLibraryTree = forwardRef<ComponentLibraryTreeHandle, ComponentLibraryTreeProps>(
+  function ComponentLibraryTree(
+    {
+      systemRootCatId,
+      personalRootCatId,
+      variant = 'manage',
+      onWorkbenchSelectionChange,
+    }: ComponentLibraryTreeProps,
+    ref,
+  ) {
+  const { t } = useI18n()
   const { message, modal } = App.useApp()
   const [treeData, setTreeData] = useState<DataNode[]>([])
+  const [selectedKeys, setSelectedKeys] = useState<React.Key[]>([])
   const [ctx, setCtx] = useState<{ x: number; y: number; target: CtxTarget } | null>(null)
 
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailData, setDetailData] = useState<ComponentDefinitionDto | null>(null)
+  const [detailComponentId, setDetailComponentId] = useState<number | null>(null)
 
   const [scriptOpen, setScriptOpen] = useState(false)
   const [scriptComponentId, setScriptComponentId] = useState<number | null>(null)
@@ -118,11 +158,35 @@ export function ComponentLibraryTree({
   const [createForm] = Form.useForm<{ name: string }>()
 
   useEffect(() => {
-    setTreeData([
-      { title: '系统组件', key: `cat-${systemRootCatId}`, isLeaf: false },
-      { title: '我的组件', key: `cat-${personalRootCatId}`, isLeaf: false },
-    ])
-  }, [systemRootCatId, personalRootCatId])
+    if (variant === 'palette') {
+      const cid = systemRootCatId
+      const root: CatTreeDataNode = {
+        title: t('componentTree.root.system'),
+        key: `pal-root-${cid}`,
+        isLeaf: false,
+        catLoadId: cid,
+      }
+      setTreeData([root])
+    } else {
+      const sys: CatTreeDataNode = {
+        title: t('componentTree.root.system'),
+        key: `mg-sys-${systemRootCatId}`,
+        isLeaf: false,
+        catLoadId: systemRootCatId,
+      }
+      const per: CatTreeDataNode = {
+        title: t('componentTree.root.personal'),
+        key: `mg-per-${personalRootCatId}`,
+        isLeaf: false,
+        catLoadId: personalRootCatId,
+      }
+      setTreeData([sys, per])
+    }
+    if (variant === 'manage') {
+      setSelectedKeys([])
+      onWorkbenchSelectionChange?.(null)
+    }
+  }, [onWorkbenchSelectionChange, personalRootCatId, systemRootCatId, t, variant])
 
   useEffect(() => {
     if (!ctx) return
@@ -139,31 +203,32 @@ export function ComponentLibraryTree({
 
   const loadData = useCallback(
     async (node: EventDataNode<DataNode>) => {
-      const parsed = parseTreeKey(node.key)
-      if (!parsed || parsed.kind !== 'cat') return
+      const catId = resolveCatApiId(node)
+      if (catId == null) return
       try {
-        await reloadCatChildren(node.key, parsed.id)
+        await reloadCatChildren(node.key, catId)
       } catch (e) {
-        message.error(e instanceof Error ? e.message : '加载失败')
+        message.error(e instanceof Error ? e.message : t('componentTree.msg.loadChildrenFailed'))
       }
     },
-    [message, reloadCatChildren],
+    [message, reloadCatChildren, t],
   )
 
   const onRightClick = useCallback(
     (info: { event: React.MouseEvent; node: EventDataNode<DataNode> }) => {
       info.event.preventDefault()
       const parsed = parseTreeKey(info.node.key)
-      if (!parsed) return
       const title = getTitleFromNode(info.node)
-      if (parsed.kind === 'cat') {
+      const catId = resolveCatApiId(info.node)
+      if (catId != null) {
         setCtx({
           x: info.event.clientX,
           y: info.event.clientY,
-          target: { kind: 'cat', key: info.node.key, catId: parsed.id, title },
+          target: { kind: 'cat', key: info.node.key, catId, title },
         })
         return
       }
+      if (!parsed || parsed.kind !== 'comp') return
       setCtx({
         x: info.event.clientX,
         y: info.event.clientY,
@@ -175,6 +240,7 @@ export function ComponentLibraryTree({
 
   const openDetail = useCallback(
     async (componentId: number) => {
+      setDetailComponentId(componentId)
       setDetailOpen(true)
       setDetailLoading(true)
       setDetailData(null)
@@ -182,33 +248,82 @@ export function ComponentLibraryTree({
         const dto = await fetchComponentDefinition(componentId)
         setDetailData(dto)
       } catch (e) {
-        message.error(e instanceof Error ? e.message : '加载详情失败')
+        message.error(e instanceof Error ? e.message : t('componentTree.msg.detailLoadFailed'))
         setDetailOpen(false)
+        setDetailComponentId(null)
       } finally {
         setDetailLoading(false)
       }
     },
-    [message],
+    [message, t],
+  )
+
+  const reloadDetail = useCallback(async () => {
+    if (detailComponentId == null) return
+    setDetailLoading(true)
+    try {
+      const dto = await fetchComponentDefinition(detailComponentId)
+      setDetailData(dto)
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : t('componentTree.msg.detailRefreshFailed'))
+    } finally {
+      setDetailLoading(false)
+    }
+  }, [detailComponentId, message, t])
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      openDetail: (componentId: number) => openDetail(componentId),
+      openScript: (componentId: number) => {
+        setScriptComponentId(componentId)
+        setScriptOpen(true)
+      },
+    }),
+    [openDetail],
+  )
+
+  const onTreeSelect = useCallback<NonNullable<TreeProps['onSelect']>>(
+    (keys, info) => {
+      if (variant !== 'manage') return
+      setSelectedKeys(keys)
+      const key = keys[0]
+      if (key == null) {
+        onWorkbenchSelectionChange?.(null)
+        return
+      }
+      const parsed = parseTreeKey(key)
+      const title = getTitleFromNode(info.node)
+      const catId = resolveCatApiId(info.node)
+      if (parsed?.kind === 'comp') {
+        onWorkbenchSelectionChange?.({ kind: 'comp', componentId: parsed.id, title })
+      } else if (catId != null) {
+        onWorkbenchSelectionChange?.({ kind: 'cat', catId, title })
+      } else {
+        onWorkbenchSelectionChange?.(null)
+      }
+    },
+    [variant, onWorkbenchSelectionChange],
   )
 
   const menuItems: MenuProps['items'] = useMemo(() => {
     if (!ctx) return []
     if (ctx.target.kind === 'cat') {
       return [
-        { key: 'refresh', label: '刷新' },
-        { key: 'newCat', label: '新建子分类' },
-        { key: 'rename', label: '重命名' },
+        { key: 'refresh', label: t('componentTree.menu.refresh') },
+        { key: 'newCat', label: t('componentTree.menu.newChildCat') },
+        { key: 'rename', label: t('componentTree.menu.rename') },
         { type: 'divider' },
-        { key: 'delCat', label: '删除分类', danger: true },
+        { key: 'delCat', label: t('componentTree.menu.deleteCat'), danger: true },
       ]
     }
     return [
-      { key: 'detail', label: '查看详情' },
-      { key: 'script', label: '编辑脚本' },
+      { key: 'detail', label: t('componentsPage.btn.detail') },
+      { key: 'script', label: t('componentTree.menu.editScript') },
       { type: 'divider' },
-      { key: 'delComp', label: '删除组件', danger: true },
+      { key: 'delComp', label: t('componentTree.menu.deleteComp'), danger: true },
     ]
-  }, [ctx])
+  }, [ctx, t])
 
   const runMenuAction = useCallback(
     async (key: string) => {
@@ -220,9 +335,9 @@ export function ComponentLibraryTree({
         if (key === 'refresh') {
           try {
             await reloadCatChildren(target.key, target.catId)
-            message.success('已刷新')
+            message.success(t('componentTree.msg.refreshed'))
           } catch (e) {
-            message.error(e instanceof Error ? e.message : '刷新失败')
+            message.error(e instanceof Error ? e.message : t('componentTree.msg.refreshFailed'))
           }
           return
         }
@@ -240,17 +355,24 @@ export function ComponentLibraryTree({
         }
         if (key === 'delCat') {
           modal.confirm({
-            title: '删除分类',
-            content: `确定删除「${target.title}」吗？若其下仍有子分类或组件，可能失败。`,
-            okText: '删除',
+            title: t('componentTree.confirm.delCatTitle'),
+            content: t('componentTree.confirm.delCatBody', { title: target.title }),
+            okText: t('componentTree.confirm.okDelete'),
             okType: 'danger',
             onOk: async () => {
               try {
                 await deleteCat(target.catId)
                 setTreeData((t) => removeNodeByKey(t, target.key))
-                message.success('已删除分类')
+                setSelectedKeys((sk) => {
+                  if (sk[0] === target.key) {
+                    onWorkbenchSelectionChange?.(null)
+                    return []
+                  }
+                  return sk
+                })
+                message.success(t('componentTree.msg.catDeleted'))
               } catch (e) {
-                message.error(e instanceof Error ? e.message : '删除失败')
+                message.error(e instanceof Error ? e.message : t('componentTree.msg.deleteFailed'))
                 throw e
               }
             },
@@ -270,24 +392,41 @@ export function ComponentLibraryTree({
       }
       if (key === 'delComp') {
         modal.confirm({
-          title: '删除组件',
-          content: `确定删除组件「${target.title}」吗？`,
-          okText: '删除',
+          title: t('componentTree.confirm.delCompTitle'),
+          content: t('componentTree.confirm.delCompBody', { title: target.title }),
+          okText: t('componentTree.confirm.okDelete'),
           okType: 'danger',
-          onOk: async () => {
+            onOk: async () => {
             try {
               await deleteComponent(target.componentId)
               setTreeData((t) => removeNodeByKey(t, target.key))
-              message.success('已删除组件')
+              setSelectedKeys((sk) => {
+                if (sk[0] === target.key) {
+                  onWorkbenchSelectionChange?.(null)
+                  return []
+                }
+                return sk
+              })
+              message.success(t('componentTree.msg.compDeleted'))
             } catch (e) {
-              message.error(e instanceof Error ? e.message : '删除失败')
+              message.error(e instanceof Error ? e.message : t('componentTree.msg.deleteFailed'))
               throw e
             }
           },
         })
       }
     },
-    [ctx, createForm, message, modal, openDetail, reloadCatChildren, renameForm],
+    [
+      ctx,
+      createForm,
+      message,
+      modal,
+      onWorkbenchSelectionChange,
+      openDetail,
+      reloadCatChildren,
+      renameForm,
+      t,
+    ],
   )
 
   const onMenuClick: MenuProps['onClick'] = ({ key, domEvent }) => {
@@ -299,17 +438,17 @@ export function ComponentLibraryTree({
     if (!renameTarget) return
     const name = renameForm.getFieldValue('name')?.trim()
     if (!name) {
-      message.warning('请输入名称')
+      message.warning(t('componentTree.warn.enterName'))
       return
     }
     try {
       await patchCatName(renameTarget.catId, name)
-      setTreeData((t) => renameNodeTitle(t, renameTarget.key, name))
-      message.success('已重命名')
+      setTreeData((prev) => renameNodeTitle(prev, renameTarget.key, name))
+      message.success(t('componentTree.msg.renamed'))
       setRenameOpen(false)
       setRenameTarget(null)
     } catch (e) {
-      message.error(e instanceof Error ? e.message : '重命名失败')
+      message.error(e instanceof Error ? e.message : t('componentTree.msg.renameFailed'))
     }
   }
 
@@ -317,17 +456,17 @@ export function ComponentLibraryTree({
     if (!createTarget) return
     const name = createForm.getFieldValue('name')?.trim()
     if (!name) {
-      message.warning('请输入分类名称')
+      message.warning(t('componentTree.warn.enterCatName'))
       return
     }
     try {
       await createCat({ name, parentId: createTarget.parentId })
-      message.success('已新建子分类')
+      message.success(t('componentTree.msg.childCatCreated'))
       setCreateOpen(false)
       await reloadCatChildren(createTarget.parentKey, createTarget.parentId)
       setCreateTarget(null)
     } catch (e) {
-      message.error(e instanceof Error ? e.message : '新建失败')
+      message.error(e instanceof Error ? e.message : t('componentTree.msg.createFailed'))
     }
   }
 
@@ -358,14 +497,12 @@ export function ComponentLibraryTree({
   return (
     <Card
       size="small"
-      title={variant === 'palette' ? '组件库（拖入画布）' : '组件库'}
+      title={variant === 'palette' ? t('componentTree.card.palette') : t('componentTree.card.default')}
       bordered={false}
       styles={{ body: { paddingTop: 8 } }}
     >
       <Text type="secondary" style={{ display: 'block', marginBottom: 8, fontSize: 12 }}>
-        {variant === 'palette'
-          ? '展开分类后，按住组件名称拖到右侧流程图空白处即可新建节点（需已加载工程）。'
-          : '右键分类或组件可刷新、管理分类或查看详情与编辑脚本。根节点 ID 可在 config.json 或环境变量中配置。'}
+        {variant === 'palette' ? t('componentTree.hint.palette') : t('componentTree.hint.manage')}
       </Text>
       <div onMouseDown={(e) => e.stopPropagation()}>
         <Tree
@@ -375,6 +512,9 @@ export function ComponentLibraryTree({
           treeData={treeData}
           titleRender={titleRender}
           onRightClick={onRightClick}
+          {...(variant === 'manage'
+            ? { selectedKeys, onSelect: onTreeSelect }
+            : {})}
         />
       </div>
 
@@ -401,10 +541,13 @@ export function ComponentLibraryTree({
         open={detailOpen}
         loading={detailLoading}
         data={detailData}
+        componentId={detailComponentId}
         onClose={() => {
           setDetailOpen(false)
           setDetailData(null)
+          setDetailComponentId(null)
         }}
+        onReloadDetail={reloadDetail}
       />
 
       <ComponentScriptModal
@@ -420,7 +563,7 @@ export function ComponentLibraryTree({
       />
 
       <Modal
-        title="重命名分类"
+        title={t('componentTree.renameModalTitle')}
         open={renameOpen}
         onCancel={() => {
           setRenameOpen(false)
@@ -430,14 +573,18 @@ export function ComponentLibraryTree({
         destroyOnHidden
       >
         <Form form={renameForm} layout="vertical" style={{ marginTop: 8 }}>
-          <Form.Item name="name" label="名称" rules={[{ required: true, message: '请输入名称' }]}>
+          <Form.Item
+            name="name"
+            label={t('componentTree.field.name')}
+            rules={[{ required: true, message: t('componentTree.warn.enterName') }]}
+          >
             <Input allowClear />
           </Form.Item>
         </Form>
       </Modal>
 
       <Modal
-        title="新建子分类"
+        title={t('componentTree.createModalTitle')}
         open={createOpen}
         onCancel={() => {
           setCreateOpen(false)
@@ -447,11 +594,18 @@ export function ComponentLibraryTree({
         destroyOnHidden
       >
         <Form form={createForm} layout="vertical" style={{ marginTop: 8 }}>
-          <Form.Item name="name" label="分类名称" rules={[{ required: true, message: '请输入名称' }]}>
-            <Input allowClear placeholder="新分类名称" />
+          <Form.Item
+            name="name"
+            label={t('componentTree.field.catName')}
+            rules={[{ required: true, message: t('componentTree.warn.enterCatName') }]}
+          >
+            <Input allowClear placeholder={t('componentTree.placeholder.newCat')} />
           </Form.Item>
         </Form>
       </Modal>
     </Card>
   )
 }
+)
+
+ComponentLibraryTree.displayName = 'ComponentLibraryTree'

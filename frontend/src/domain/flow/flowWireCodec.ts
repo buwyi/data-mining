@@ -4,6 +4,7 @@ import type {
   FlowNodeWire,
   PersistedFlowDocument,
 } from './flowWireTypes'
+import type { DmFlowRunStatus, FlowRunSummaryPersist } from './flowWireTypes'
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === 'object' && !Array.isArray(v)
@@ -97,18 +98,40 @@ export function parseFlowDocumentFromUnknown(root: unknown): PersistedFlowDocume
   const nodes = parseNodes(root.nodes)
   const links = parseLinks(root.links)
   const summary = Array.isArray(root.summary) ? root.summary : undefined
-  return { style, nodes, links, summary }
+  const flowRun = parseFlowRunSummaryFields(root)
+  return { style, nodes, links, summary, ...flowRun }
 }
 
-/** 组装 POST `/api/project/{id}` 的 `content` 字段（仅含后端要求的 style/nodes/links） */
-export function stringifyFlowForSave(payload: {
-  style: FlowCanvasStyle
-  nodes: FlowNodeWire[]
-  links: FlowLinkWire[]
-}): string {
-  return JSON.stringify({
+function parseFlowRunSummaryFields(root: Record<string, unknown>): FlowRunSummaryPersist {
+  const st = root.dmLastFlowStatus
+  const dmLastFlowStatus: DmFlowRunStatus | undefined =
+    st === 'success' || st === 'failed' || st === 'aborted' ? st : undefined
+  const at = root.dmLastFlowFinishedAt
+  const dmLastFlowFinishedAt = typeof at === 'string' && at.length > 0 ? at : undefined
+  const msg = root.dmLastFlowMessage
+  const dmLastFlowMessage = typeof msg === 'string' && msg.length > 0 ? msg : undefined
+  const out: FlowRunSummaryPersist = {}
+  if (dmLastFlowStatus !== undefined) out.dmLastFlowStatus = dmLastFlowStatus
+  if (dmLastFlowFinishedAt !== undefined) out.dmLastFlowFinishedAt = dmLastFlowFinishedAt
+  if (dmLastFlowMessage !== undefined) out.dmLastFlowMessage = dmLastFlowMessage
+  return out
+}
+
+/** 组装 POST `/api/project/{id}` 的 `content` 字段（style/nodes/links + 可选 `dmLastFlow*`） */
+export function stringifyFlowForSave(
+  payload: {
+    style: FlowCanvasStyle
+    nodes: FlowNodeWire[]
+    links: FlowLinkWire[]
+  } & FlowRunSummaryPersist,
+): string {
+  const base: Record<string, unknown> = {
     style: payload.style,
     nodes: payload.nodes,
     links: payload.links,
-  })
+  }
+  if (payload.dmLastFlowStatus !== undefined) base.dmLastFlowStatus = payload.dmLastFlowStatus
+  if (payload.dmLastFlowFinishedAt !== undefined) base.dmLastFlowFinishedAt = payload.dmLastFlowFinishedAt
+  if (payload.dmLastFlowMessage !== undefined) base.dmLastFlowMessage = payload.dmLastFlowMessage
+  return JSON.stringify(base)
 }

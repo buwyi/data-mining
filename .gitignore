@@ -1,2 +1,8 @@
 /operation-log/
 .cursorrules
+deployment
+pic
+.env.example
+data-mining/
+.pnpm-store/
+templates/

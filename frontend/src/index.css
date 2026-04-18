@@ -9,3 +9,37 @@ body,
 body {
   min-width: 320px;
 }
+
+/* 节点日志（HTML）：行间距 */
+.node-log-html-body > div + div {
+  margin-top: 4px;
+}
+
+/* 节点报告（内联 HTML）：兜底表格与图片，避免只剩「裸标签」观感 */
+.node-report-html-body {
+  color: rgba(0, 0, 0, 0.88);
+}
+
+.node-report-html-body .node-report-sanitized table {
+  border-collapse: collapse;
+  max-width: 100%;
+}
+
+.node-report-html-body .node-report-sanitized td,
+.node-report-html-body .node-report-sanitized th {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.node-report-html-body .node-report-sanitized img {
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+}
+
+.node-report-html-body .node-report-sanitized pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

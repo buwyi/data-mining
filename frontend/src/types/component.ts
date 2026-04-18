@@ -26,5 +26,7 @@ export type ComponentDefinitionDto = Record<string, unknown> & {
   supportPMML?: boolean
   hasReport?: boolean
   enabled?: boolean
+  /** PUT 时由 `buildComponentPutBody` 生成；GET 常在 `extra.engine` */
+  engine?: string
   extra?: { engine?: string }
 }

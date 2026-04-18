@@ -1,9 +1,18 @@
 export type {
+  DmFlowRunStatus,
   FlowCanvasStyle,
   FlowLinkWire,
   FlowNodeWire,
+  FlowRunSummaryPersist,
   PersistedFlowDocument,
 } from './flowWireTypes'
+export {
+  DM_NODE_LAST_RUN_AT,
+  DM_NODE_LAST_RUN_STATUS,
+  readDmNodeLastRunAt,
+  readDmNodeLastRunStatus,
+  type DmNodeRunStatus,
+} from './dmRunPersistence'
 export {
   DEFAULT_STYLE_ON_EMPTY,
   emptyPersistedFlowDocument,

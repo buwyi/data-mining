@@ -7,6 +7,8 @@ import { fetchTokenInfo } from '../../api/tokenApi'
 import { getOAuthRedirectUri } from '../../auth/oauthPaths'
 import { resolveOAuthClientId, resolveOAuthClientSecret } from '../../auth/oauthClient'
 import { consumePostLoginRedirect } from '../../auth/postLoginRedirect'
+import { BrowserCompatibilityAlert } from '../../components/BrowserCompatibilityAlert'
+import { useI18n } from '../../i18n/I18nProvider'
 import { useConfigStore } from '../../stores/configStore'
 import { useAuthStore } from '../../stores/authStore'
 
@@ -17,6 +19,7 @@ function isAbortError(e: unknown): boolean {
 }
 
 export function OAuthCallbackPage() {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const config = useConfigStore((s) => s.config)
@@ -31,12 +34,12 @@ export function OAuthCallbackPage() {
 
   const paramError = useMemo(() => {
     if (oauthError) return oauthErrorDesc ?? oauthError
-    if (!code) return '缺少授权码（code），请从登录入口重新发起授权。'
+    if (!code) return t('oauthCallback.paramMissingCode')
     const clientId = resolveOAuthClientId(config)
     const clientSecret = resolveOAuthClientSecret()
-    if (!clientId || !clientSecret) return '未配置 OAuth 客户端 ID 或 client_secret，无法换票。'
+    if (!clientId || !clientSecret) return t('oauthCallback.paramBadClientConfig')
     return null
-  }, [code, config, oauthError, oauthErrorDesc])
+  }, [code, config, oauthError, oauthErrorDesc, t])
 
   const displayError = paramError ?? fetchError
 
@@ -67,20 +70,21 @@ export function OAuthCallbackPage() {
           setTokenUser({
             username: typeof info.username === 'string' ? info.username : '',
             permissions: Array.isArray(info.permissions) ? info.permissions : [],
+            shareable: Array.isArray(info.shareable) ? info.shareable : [],
           })
         } catch {
-          setTokenUser({ username: '', permissions: [] })
+          setTokenUser({ username: '', permissions: [], shareable: [] })
         }
         const next = consumePostLoginRedirect()
         navigate(next, { replace: true })
       } catch (e) {
         if (isAbortError(e)) return
-        setFetchError(e instanceof Error ? e.message : '换票失败')
+        setFetchError(e instanceof Error ? e.message : t('oauthCallback.exchangeFailed'))
       }
     })()
 
     return () => ac.abort()
-  }, [code, config, navigate, paramError, setAccessToken, setTokenUser])
+  }, [code, config, navigate, paramError, setAccessToken, setTokenUser, t])
 
   if (displayError) {
     return (
@@ -94,11 +98,12 @@ export function OAuthCallbackPage() {
         }}
       >
         <Card style={{ width: 'min(480px, 100%)' }}>
-          <Title level={4}>登录未完成</Title>
+          <Title level={4}>{t('oauthCallback.titleIncomplete')}</Title>
+          <BrowserCompatibilityAlert style={{ marginBottom: 12 }} />
           <Alert type="error" message={displayError} showIcon style={{ marginTop: 12 }} />
           <Paragraph style={{ marginTop: 16 }}>
-            <Text type="secondary">请关闭本页或</Text>{' '}
-            <a href="/login">返回登录页</a>
+            <Text type="secondary">{t('oauthCallback.returnHintBefore')}</Text>{' '}
+            <a href="/login">{t('oauthCallback.backLogin')}</a>
           </Paragraph>
         </Card>
       </div>
@@ -114,10 +119,12 @@ export function OAuthCallbackPage() {
         justifyContent: 'center',
         flexDirection: 'column',
         gap: 16,
+        padding: 24,
       }}
     >
+      <BrowserCompatibilityAlert style={{ width: 'min(480px, 100%)' }} />
       <Spin indicator={<LoadingOutlined spin style={{ fontSize: 32 }} />} />
-      <Text type="secondary">正在完成登录…</Text>
+      <Text type="secondary">{t('oauthCallback.finishing')}</Text>
     </div>
   )
 }

@@ -6,5 +6,7 @@
   "socketPort": 9020,
   "title": "数据挖掘建模平台",
   "databaseUploadFileSize": 10,
-  "mode": "online"
+  "mode": "online",
+  "oauthClientId": "2f59ad62-e916-4411-87cc-e58223205445",
+  "tipdmLogHome": "/logs"
 }

@@ -5,12 +5,15 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { buildOAuthAuthorizeUrl } from '../../auth/oauthPaths'
 import { resolveOAuthClientId, resolveOAuthClientSecret } from '../../auth/oauthClient'
 import { setPostLoginRedirect } from '../../auth/postLoginRedirect'
-import { useConfigStore } from '../../stores/configStore'
+import { BrowserCompatibilityAlert } from '../../components/BrowserCompatibilityAlert'
+import { useI18n } from '../../i18n/I18nProvider'
 import { useAuthStore } from '../../stores/authStore'
+import { useConfigStore } from '../../stores/configStore'
 
 const { Paragraph, Title } = Typography
 
 export function LoginPage() {
+  const { t } = useI18n()
   const location = useLocation()
   const config = useConfigStore((s) => s.config)
   const accessToken = useAuthStore((s) => s.accessToken)
@@ -24,8 +27,12 @@ export function LoginPage() {
 
   const startLogin = () => {
     if (!clientId) return
-    const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
-    setPostLoginRedirect(from && from !== '/login' ? from : '/home/main')
+    const from = (location.state as { from?: { pathname?: string; search?: string } } | null)?.from
+    const path =
+      from?.pathname && from.pathname !== '/login'
+        ? `${from.pathname}${from.search ?? ''}`
+        : '/home/main'
+    setPostLoginRedirect(path)
     window.location.href = buildOAuthAuthorizeUrl(clientId)
   }
 
@@ -42,17 +49,20 @@ export function LoginPage() {
     >
       <Card style={{ width: 'min(420px, 100%)' }} bordered={false}>
         <Title level={4} style={{ marginTop: 0 }}>
-          登录
+          {t('login.title')}
         </Title>
+        <BrowserCompatibilityAlert />
         <Paragraph type="secondary">
-          使用与旧版 TipDM 相同的 OAuth 授权服务；授权成功后将回到本站的 <code>/oauth/callback</code>。
+          {t('login.line1')}
+          <code>/oauth/callback</code>
+          {t('login.line2')}
         </Paragraph>
         {!clientId ? (
           <Alert
             type="warning"
             showIcon
-            message="未配置 OAuth 客户端 ID"
-            description="请在 public/config.json 中设置 oauthClientId，或配置环境变量 VITE_OAUTH_CLIENT_ID。"
+            message={t('login.noClientId')}
+            description={t('login.noClientIdDesc')}
             style={{ marginBottom: 16 }}
           />
         ) : null}
@@ -60,8 +70,8 @@ export function LoginPage() {
           <Alert
             type="info"
             showIcon
-            message="未配置 client_secret"
-            description="换票需要 VITE_OAUTH_CLIENT_SECRET（开发环境 .env.local）。生产环境建议由后端代理换票，避免在浏览器暴露密钥。"
+            message={t('login.noSecret')}
+            description={t('login.noSecretDesc')}
             style={{ marginBottom: 16 }}
           />
         ) : null}
@@ -74,7 +84,7 @@ export function LoginPage() {
             disabled={!clientId || !hasSecret}
             onClick={() => startLogin()}
           >
-            前往授权登录
+            {t('login.goAuthorize')}
           </Button>
         </Space>
       </Card>

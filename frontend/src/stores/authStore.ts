@@ -1,13 +1,16 @@
 import { create } from 'zustand'
+import { resolveAccessTokenStorageKey } from '../config/accessTokenRuntime'
 
 export type TokenUser = {
   username: string
   permissions: string[]
+  /** `GET /token/info` → `shareable`，用于数据源共享等 */
+  shareable?: unknown[]
 }
 
 function readStoredAccessToken(): string | null {
   try {
-    return localStorage.getItem('accessToken')
+    return localStorage.getItem(resolveAccessTokenStorageKey())
   } catch {
     return null
   }
@@ -27,8 +30,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   setAccessToken: (accessToken) => {
     set({ accessToken })
     try {
-      if (accessToken) localStorage.setItem('accessToken', accessToken)
-      else localStorage.removeItem('accessToken')
+      const key = resolveAccessTokenStorageKey()
+      if (accessToken) localStorage.setItem(key, accessToken)
+      else localStorage.removeItem(key)
     } catch {
       /* ignore */
     }
@@ -37,7 +41,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   clearAuth: () => {
     set({ accessToken: null, tokenUser: null })
     try {
-      localStorage.removeItem('accessToken')
+      localStorage.removeItem(resolveAccessTokenStorageKey())
     } catch {
       /* ignore */
     }

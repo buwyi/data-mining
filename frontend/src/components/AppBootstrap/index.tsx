@@ -3,10 +3,12 @@ import { Button, Flex, Result, Spin, Typography } from 'antd'
 import { useEffect, type ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { checkAccessToken } from '../../api/tokenApi'
+import { useI18n } from '../../i18n/I18nProvider'
 import { useAuthStore } from '../../stores/authStore'
 import { useConfigStore } from '../../stores/configStore'
 
 export function AppBootstrap({ children }: { children: ReactNode }) {
+  const { t } = useI18n()
   const { status, error, load } = useConfigStore(
     useShallow((s) => ({ status: s.status, error: s.error, load: s.load })),
   )
@@ -28,7 +30,7 @@ export function AppBootstrap({ children }: { children: ReactNode }) {
     return (
       <Flex align="center" justify="center" style={{ minHeight: '100vh' }} vertical gap="middle">
         <Spin size="large" />
-        <Typography.Text type="secondary">正在加载配置…</Typography.Text>
+        <Typography.Text type="secondary">{t('bootstrap.loadingConfig')}</Typography.Text>
       </Flex>
     )
   }
@@ -38,11 +40,11 @@ export function AppBootstrap({ children }: { children: ReactNode }) {
       <Flex align="center" justify="center" style={{ minHeight: '100vh', padding: 24 }}>
         <Result
           status="error"
-          title="配置加载失败"
-          subTitle={error ?? '请检查网络与 config.json 是否可访问'}
+          title={t('bootstrap.configErrorTitle')}
+          subTitle={error ?? t('bootstrap.configErrorHint')}
           extra={
             <Button type="primary" icon={<ReloadOutlined />} onClick={() => void load()}>
-              重试
+              {t('bootstrap.retry')}
             </Button>
           }
         />
