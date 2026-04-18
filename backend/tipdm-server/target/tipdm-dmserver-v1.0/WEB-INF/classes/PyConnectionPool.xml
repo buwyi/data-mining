@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PyConnectionPool>
+    <PyConfiguration>
+        <!-- 本地 Python 服务器配置 -->
+        <!-- 注意：需要在 macOS 系统设置中启用"远程登录"功能 -->
+        <!-- pythoncmd：SSH 登录后在远程 shell 里执行脚本用的命令，macOS 一般为 python3 -->
+        <PyServer host="localhost" sshuser="xiniuyiliao" sshpwd="123456" sshport="22" pythoncmd="python3"/>
+    </PyConfiguration>
+</PyConnectionPool>
