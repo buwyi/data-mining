@@ -1,0 +1,158 @@
+.surface {
+  position: relative;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.surface:hover {
+  border-color: rgba(22, 119, 255, 0.35);
+  box-shadow: 0 2px 8px rgba(22, 119, 255, 0.08);
+}
+
+.surfaceReadOnly {
+  opacity: 0.92;
+  background: #f7f7f7;
+}
+
+.surfaceReadOnly:hover {
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.inner {
+  padding: 10px 10px 12px;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.iconWrap {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* 与字段语义弱关联的色条，便于扫视 */
+.variantText {
+  color: #0958d9;
+  background: rgba(22, 119, 255, 0.1);
+}
+.variantNumber {
+  color: #08979c;
+  background: rgba(19, 194, 194, 0.12);
+}
+.variantChoice {
+  color: #531dab;
+  background: rgba(114, 46, 209, 0.1);
+}
+.variantTextarea {
+  color: #d48806;
+  background: rgba(250, 173, 20, 0.12);
+}
+.variantCode {
+  color: #c41d7f;
+  background: rgba(235, 47, 150, 0.1);
+}
+.variantToggle {
+  color: #389e0d;
+  background: rgba(82, 196, 26, 0.12);
+}
+.variantGrid {
+  color: #1677ff;
+  background: rgba(22, 119, 255, 0.1);
+}
+.variantReadonly {
+  color: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.labelCol {
+  flex: 1;
+  min-width: 0;
+}
+
+.labelRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  line-height: 1.35;
+}
+
+.labelText {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.88);
+}
+
+.required {
+  color: #ff4d4f;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.helpIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.06);
+  cursor: help;
+  user-select: none;
+}
+
+.helpIcon:hover {
+  color: var(--ant-color-primary, #1677ff);
+  background: rgba(22, 119, 255, 0.12);
+}
+
+.description {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+.control {
+  min-width: 0;
+}
+
+.control :global(.ant-input),
+.control :global(.ant-input-number),
+.control :global(.ant-select-selector) {
+  border-radius: 8px !important;
+}
+
+.control :global(.ant-input-number-input) {
+  border-radius: 8px;
+}
+
+.footer {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(0, 0, 0, 0.06);
+  font-size: 11px;
+  line-height: 1.5;
+  color: rgba(0, 0, 0, 0.45);
+}
