@@ -1,0 +1,12 @@
+/Users/xiniuyiliao/buwyi/gitspace/TipDM/backend/framework-persist/src/main/java/com/tipdm/framework/persist/datasource/RowToByteArrayConverter.java
+/Users/xiniuyiliao/buwyi/gitspace/TipDM/backend/framework-persist/src/main/java/com/tipdm/framework/persist/datasource/ResultSetAsInputStream.java
+/Users/xiniuyiliao/buwyi/gitspace/TipDM/backend/framework-persist/src/main/java/com/tipdm/framework/persist/dialect/DmPostgreSQL94Dialect.java
+/Users/xiniuyiliao/buwyi/gitspace/TipDM/backend/framework-persist/src/main/java/com/tipdm/framework/persist/transform/AliasToEntityLinkedMapResultTransformer.java
+/Users/xiniuyiliao/buwyi/gitspace/TipDM/backend/framework-persist/src/main/java/com/tipdm/framework/persist/datasource/Hibernates.java
+/Users/xiniuyiliao/buwyi/gitspace/TipDM/backend/framework-persist/src/main/java/com/tipdm/framework/persist/datasource/DynamicDataSource.java
+/Users/xiniuyiliao/buwyi/gitspace/TipDM/backend/framework-persist/src/main/java/com/tipdm/framework/persist/jdbc/DynamicLoadDriver.java
+/Users/xiniuyiliao/buwyi/gitspace/TipDM/backend/framework-persist/src/main/java/com/tipdm/framework/persist/datasource/NamedParameterStatement.java
+/Users/xiniuyiliao/buwyi/gitspace/TipDM/backend/framework-persist/src/main/java/com/tipdm/framework/persist/datasource/ThreadPoolConf.java
+/Users/xiniuyiliao/buwyi/gitspace/TipDM/backend/framework-persist/src/main/java/com/tipdm/framework/persist/datasource/DataSourceConfig.java
+/Users/xiniuyiliao/buwyi/gitspace/TipDM/backend/framework-persist/src/main/java/com/tipdm/framework/persist/jdbc/DriverShim.java
+/Users/xiniuyiliao/buwyi/gitspace/TipDM/backend/framework-persist/src/main/java/com/tipdm/framework/persist/BaseRepository.java

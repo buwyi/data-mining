@@ -1,0 +1,8 @@
+com/tipdm/framework/model/IdEntity.class
+com/tipdm/framework/model/oauth/User.class
+com/tipdm/framework/model/oauth/UserResource.class
+com/tipdm/framework/model/oauth/Resource.class
+com/tipdm/framework/model/oauth/Organization.class
+com/tipdm/framework/model/oauth/ResourceScope.class
+com/tipdm/framework/model/oauth/OAuthClient.class
+com/tipdm/framework/model/oauth/Role.class

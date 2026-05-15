@@ -1,0 +1,12 @@
+com/tipdm/framework/persist/datasource/ThreadPoolConf.class
+com/tipdm/framework/persist/jdbc/DynamicLoadDriver.class
+com/tipdm/framework/persist/dialect/DmPostgreSQL94Dialect.class
+com/tipdm/framework/persist/datasource/DynamicDataSource.class
+com/tipdm/framework/persist/datasource/Hibernates.class
+com/tipdm/framework/persist/transform/AliasToEntityLinkedMapResultTransformer.class
+com/tipdm/framework/persist/datasource/DataSourceConfig.class
+com/tipdm/framework/persist/datasource/ResultSetAsInputStream.class
+com/tipdm/framework/persist/BaseRepository.class
+com/tipdm/framework/persist/jdbc/DriverShim.class
+com/tipdm/framework/persist/datasource/NamedParameterStatement.class
+com/tipdm/framework/persist/datasource/RowToByteArrayConverter.class
