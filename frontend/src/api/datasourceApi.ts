@@ -1,12 +1,14 @@
 import type { ApiResult } from '../types/apiResult'
-import type {
-  ConnectionTestColumnMeta,
-  ConnectionTestResult,
-  CreateRdbmsDatasourceBody,
-  DatasourceConnectionTestBody,
-  DatasourceSearchPage,
-  DatasourceSearchParams,
-  FlatDatasourceColumnPayload,
+import {
+  type ConnectionTestColumnMeta,
+  type ConnectionTestResult,
+  type CreateRdbmsDatasourceBody,
+  type DatasourceConnectionTestBody,
+  type DatasourceSearchPage,
+  type DatasourceSearchParams,
+  type FlatDatasourceColumnPayload,
+  formatStandardLocalDateTime,
+  isLikelyTimeFieldKeyForConnectionInfo,
 } from '../types/datasource'
 import { normalizePagedListData, type PagedListResult } from '../utils/normalizePagedData'
 import { apiFetch } from './httpClient'
@@ -156,10 +158,14 @@ export async function fetchDatasourcePreview(
   return normalizeDatasourcePreviewResult(raw)
 }
 
-function flattenConnectionInfoValue(v: unknown): string {
+function flattenConnectionInfoValue(key: string, v: unknown): string {
   if (v == null) return ''
   if (typeof v === 'object') return JSON.stringify(v)
-  return String(v)
+  const s = String(v)
+  if (isLikelyTimeFieldKeyForConnectionInfo(key)) {
+    return formatStandardLocalDateTime(s)
+  }
+  return s
 }
 
 /** `GET /api/datasource/{tableId}/connection/info` */
@@ -173,7 +179,7 @@ export async function fetchDatasourceConnectionInfo(tableId: string | number): P
   if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) return {}
   const out: Record<string, string> = {}
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-    out[k] = flattenConnectionInfoValue(v)
+    out[k] = flattenConnectionInfoValue(k, v)
   }
   return out
 }

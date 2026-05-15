@@ -51,10 +51,57 @@ function firstNonEmptyString(row: DatasourceListRow, keys: readonly string[]): s
   return ''
 }
 
-/** 表格「名称」列展示 */
+/**
+ * 表格「显示名称」列：优先使用后端展示名（与检索参数 `showName` 对应），再回退物理表名等。
+ */
 export function pickDatasourceRowLabel(row: DatasourceListRow): string {
-  const s = firstNonEmptyString(row, ['tableName', 'name', 'table', 'label', 'title'])
+  const s = firstNonEmptyString(row, [
+    'showName',
+    'displayName',
+    'chineseName',
+    'tableName',
+    'name',
+    'table',
+    'label',
+    'title',
+  ])
   return s || '—'
+}
+
+/** 数据源来源：仅区分数据库拉表与文件导入（用于列表「类型」列） */
+export type DatasourceOriginKind = 'database' | 'file'
+
+export function inferDatasourceOriginKind(row: DatasourceListRow): DatasourceOriginKind {
+  const typeStr = [
+    firstNonEmptyString(row, ['type', 'sourceType', 'dataSourceType', 'category', 'kind']),
+    row.engine != null ? String(row.engine) : '',
+  ]
+    .join(' ')
+    .toLowerCase()
+
+  const tableHint = (
+    pickDatasourceSyncTableName(row) ??
+    firstNonEmptyString(row, ['tableName', 'name', 'table'])
+  ).toLowerCase()
+
+  const hay = `${typeStr} ${tableHint}`
+
+  if (
+    /\bflat\b|\bcsv\b|upload|spreadsheet|excel|\.csv|\.xlsx?|\.txt\b|file\s*import|import\s*file/.test(hay)
+  ) {
+    return 'file'
+  }
+  if (
+    /\bjdbc\b|\bmysql\b|\bpostgres\b|\boracle\b|\bmssql\b|\bmariadb\b|\bhive\b|\bdm\b|\btidb\b|\brdbms\b|\bdatabase\b|\bsql\b/.test(
+      hay,
+    )
+  ) {
+    return 'database'
+  }
+
+  if (/\.(csv|xlsx?|txt)$/.test(tableHint)) return 'file'
+
+  return 'database'
 }
 
 /** `GET /api/datasource/syncTable?tableName=` 使用的逻辑表名（与路径 tableId 可能不同） */
@@ -83,8 +130,67 @@ export function pickDatasourceTypeLabel(row: DatasourceListRow): string {
   return s || '—'
 }
 
-export function pickDatasourceTimeLabel(row: DatasourceListRow): string {
-  const s = firstNonEmptyString(row, [
+/** 将接口返回的时间字符串/时间戳格式化为中文易读：yyyy年MM月dd日 HH:mm:ss（24 小时制） */
+export function formatDatasourceTimeHumanReadable(raw: string): string {
+  const t = raw.trim()
+  if (t === '') return raw
+
+  let d: Date
+  // 仅当为足够长的纯数字时按 Unix 时间戳解析（避免把「2024」等误当时间戳）
+  if (/^\d{10,}$/.test(t)) {
+    const n = Number(t)
+    d = new Date(n < 1e12 ? n * 1000 : n)
+  } else {
+    d = new Date(t)
+  }
+  if (Number.isNaN(d.getTime())) return raw
+
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const y = d.getFullYear()
+  const m = pad(d.getMonth() + 1)
+  const day = pad(d.getDate())
+  const hh = pad(d.getHours())
+  const mm = pad(d.getMinutes())
+  const ss = pad(d.getSeconds())
+  return `${y}年${m}月${day}日 ${hh}:${mm}:${ss}`
+}
+
+/**
+ * 标准本地时间：`YYYY-MM-DD HH:mm:ss`（24 小时制），用于连接信息弹窗等。
+ * 无法解析为时间则原样返回。
+ */
+export function formatStandardLocalDateTime(raw: string): string {
+  const t = raw.trim()
+  if (t === '') return raw
+
+  let d: Date
+  if (/^\d{10,}$/.test(t)) {
+    const n = Number(t)
+    d = new Date(n < 1e12 ? n * 1000 : n)
+  } else {
+    d = new Date(t)
+  }
+  if (Number.isNaN(d.getTime())) return raw
+
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
+/** 连接信息对象字段名是否像时间戳/时间（用于格式化为标准时间） */
+export function isLikelyTimeFieldKeyForConnectionInfo(key: string): boolean {
+  const raw = key.trim()
+  const k = raw.toLowerCase().replace(/_/g, '')
+  return (
+    k.includes('time') ||
+    k.includes('date') ||
+    k.includes('gmt') ||
+    /(created|updated)at$/i.test(raw)
+  )
+}
+
+/** 原始时间字段串（未格式化），供列表「近期导入」等展示逻辑使用 */
+export function pickDatasourceTimeRaw(row: DatasourceListRow): string {
+  return firstNonEmptyString(row, [
     'createTime',
     'createdTime',
     'gmtCreate',
@@ -92,7 +198,12 @@ export function pickDatasourceTimeLabel(row: DatasourceListRow): string {
     'updatedTime',
     'gmtModified',
   ])
-  return s || '—'
+}
+
+export function pickDatasourceTimeLabel(row: DatasourceListRow): string {
+  const s = pickDatasourceTimeRaw(row)
+  if (s === '') return '—'
+  return formatDatasourceTimeHumanReadable(s)
 }
 
 /** 列表行若含同步相关字段则展示（字段名随后端 DTO 扩展） */

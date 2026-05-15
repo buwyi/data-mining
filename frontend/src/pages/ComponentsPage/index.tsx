@@ -175,34 +175,10 @@ export function ComponentsPage() {
             {t('componentsPage.doc.sectionTitle')}
           </Title>
           <Paragraph type="secondary" style={{ marginBottom: 8 }}>
-            {t('componentsPage.doc.line1a')}
-            <Text code>{'GET /api/cat/{catId}/childs'}</Text>
-            {t('componentsPage.doc.line1b')}
-            <Text code>public/config.json</Text>
-            {t('componentsPage.doc.line1c')}
-            <Text code>componentSystemCatId</Text>
-            {t('componentsPage.doc.line1d')}
-            <Text code>componentPersonalCatId</Text>
-            {t('componentsPage.doc.line1e')}
-            <Text code>VITE_COMPONENT_SYSTEM_CAT_ID</Text>
-            {t('componentsPage.doc.line1f')}
-            <Text code>VITE_COMPONENT_PERSONAL_CAT_ID</Text>
-            {t('componentsPage.doc.line1g')}
+            {t('componentsPage.doc.body1')}
           </Paragraph>
           <Paragraph type="secondary" style={{ marginBottom: 0 }}>
-            {t('componentsPage.doc.p2a')}
-            <strong>{t('shell.workbench')}</strong>
-            {t('componentsPage.doc.p2b')}
-            <strong>{t('componentsPage.btn.detail')}</strong>
-            {t('componentsPage.doc.p2c')}
-            <Text code>id</Text>
-            {t('componentsPage.doc.p2d')}
-            <Text code>{'DELETE /api/element/{id}'}</Text>
-            {t('componentsPage.doc.p2e')}
-            <Text code>GET /api/widget/list</Text>
-            {t('componentsPage.doc.p2f')}
-            <Text code>GET /api/algorithm/list</Text>
-            {t('componentsPage.doc.p2g')}
+            {t('componentsPage.doc.body2')}
           </Paragraph>
         </Card>
 
