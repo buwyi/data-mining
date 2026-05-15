@@ -29,6 +29,10 @@ interface ImportMetaEnv {
   readonly VITE_ANTD_COLOR_PRIMARY?: string
   /** 应用文案语言：`zh-CN` | `en`（与 `I18nProvider` 一致；未设时读 localStorage `app.locale`） */
   readonly VITE_DEFAULT_LOCALE?: string
+  /**
+   * 为 `true` 时，数据源列表将行上的创建/更新时间替换为本月内的演示时间（仅前端展示，便于体现「近期导入」）。
+   */
+  readonly VITE_DATASOURCE_DEMO_THIS_MONTH?: string
 }
 
 interface ImportMeta {

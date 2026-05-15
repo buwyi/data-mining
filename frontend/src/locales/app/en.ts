@@ -60,10 +60,6 @@ export const appMessagesEn = {
   'login.goAuthorize': 'Continue to authorize',
 
   'mainPage.quickHint': 'Shortcuts: jump to common workspaces in one click.',
-  'mainPage.bannerCardTitle': 'Community & docs',
-  'mainPage.bannerEmpty': 'No banner links',
-  'mainPage.community': 'Community',
-  'mainPage.docs': 'Documentation',
   'mainPage.templatesTitle': 'Flow templates',
   'mainPage.templatesHint':
     'Templates available on the server. Create a new project from a template, or delete templates you no longer need.',
@@ -103,10 +99,15 @@ export const appMessagesEn = {
   'datasourcePage.filterPlaceholder': 'Table name prefix',
   'datasourcePage.search': 'Search',
   'datasourcePage.refresh': 'Refresh',
-  'datasourcePage.col.label': 'Name / table',
+  'datasourcePage.col.label': 'Display name',
   'datasourcePage.col.type': 'Type',
+  'datasourcePage.type.database': 'Database table',
+  'datasourcePage.type.file': 'File import',
   'datasourcePage.col.syncStatus': 'Sync status',
   'datasourcePage.col.time': 'Time',
+  'datasourcePage.time.listToday': 'Today {{hm}}',
+  'datasourcePage.time.listDaysAgo': '{{n}} days ago · {{hm}}',
+  'datasourcePage.time.listThisMonth': 'This month · {{md}} {{hms}}',
   'datasourcePage.col.actions': 'Actions',
   'datasourcePage.action.preview': 'Preview',
   'datasourcePage.action.connect': 'Connect',
@@ -137,25 +138,14 @@ export const appMessagesEn = {
     'Select a component in the tree on the left to open the detail drawer and script editor; the context menu still works.',
   'componentsPage.card.helpTitle': 'Notes',
   'componentsPage.doc.sectionTitle': 'System vs personal components',
-  'componentsPage.doc.line1a': 'The tree loads lazily: expanding a node calls ',
-  'componentsPage.doc.line1b': '. Root category IDs can be set in ',
-  'componentsPage.doc.line1c': ' using ',
-  'componentsPage.doc.line1d': ' and ',
-  'componentsPage.doc.line1e': ', or via environment variables ',
-  'componentsPage.doc.line1f': ' and ',
-  'componentsPage.doc.line1g':
-    '; when unset they default to 0 and 0 (TipDM official seed uses root categories under `parent_id = 0`; override in config if your DB differs).',
-  'componentsPage.doc.p2a': 'You can also pick a component and use the ',
-  'componentsPage.doc.p2b': ' above for details and script. Context-menu ',
-  'componentsPage.doc.p2c': ' works too; elements with a numeric ',
-  'componentsPage.doc.p2d': ' field can call ',
-  'componentsPage.doc.p2e': '. The tables below preview ',
-  'componentsPage.doc.p2f': ' and ',
-  'componentsPage.doc.p2g': '.',
-  'componentsPage.card.widgets': 'Widgets (widget/list)',
-  'componentsPage.card.algorithms': 'Algorithms (algorithm/list)',
+  'componentsPage.doc.body1':
+    'The left side lists two trees: system components and My components. Expand categories to browse nodes. System components are provided by the platform; My components are yours to create and maintain.',
+  'componentsPage.doc.body2':
+    'After selecting a component, use View details and Edit main script above. The two tables below summarize widget types and algorithm entries for reference.',
+  'componentsPage.card.widgets': 'Widget types',
+  'componentsPage.card.algorithms': 'Algorithms',
   'componentsPage.table.loading': 'Loading…',
-  'componentsPage.table.empty': '(No data or API did not return an array)',
+  'componentsPage.table.empty': 'No data',
 
   'oauthCallback.paramMissingCode': 'Missing authorization code; start again from the login page.',
   'oauthCallback.paramBadClientConfig':
@@ -204,7 +194,7 @@ export const appMessagesEn = {
   'componentTree.hint.palette':
     'Expand a category, then drag a component name onto the flow canvas to create a node (project must be loaded).',
   'componentTree.hint.manage':
-    'Select a node to open details or script on the right; right-click categories or components to refresh, manage, or edit. Root IDs are set in config.json or environment variables.',
+    'Select a category or component in the tree to use the workbench on the right for details and scripts. The context menu supports refresh, new subcategory, rename, and delete.',
 
   'scriptModal.msg.loadFailed': 'Failed to load component',
   'scriptModal.msg.saved': 'Script saved',

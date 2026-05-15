@@ -16,15 +16,19 @@ import { DatasourcePreviewModal } from '../../components/DatasourcePreviewModal'
 import { DatasourceShareModal } from '../../components/DatasourceShareModal'
 import { DatasourceStructureModal } from '../../components/DatasourceStructureModal'
 import {
+  inferDatasourceOriginKind,
   pickDatasourceDeleteId,
   pickDatasourceRowLabel,
   pickDatasourceSyncStatusText,
   pickDatasourceSyncTableName,
-  pickDatasourceTimeLabel,
-  pickDatasourceTypeLabel,
+  pickDatasourceTimeRaw,
   type DatasourceListRow,
 } from '../../types/datasource'
 import { useI18n } from '../../i18n/I18nProvider'
+import {
+  applyDatasourceRowsDemoThisMonthTimes,
+  formatDatasourceTimeForList,
+} from '../../utils/datasourceListTimeFormat'
 import { syncStatusTagColor } from '../../utils/datasourceSyncStatusUi'
 
 const { Title, Paragraph } = Typography
@@ -32,7 +36,7 @@ const { Title, Paragraph } = Typography
 type ListTab = 'mine' | 'shared'
 
 export function DataSourcePage() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const { message } = App.useApp()
   const [flatOpen, setFlatOpen] = useState(false)
   const [rdbmsOpen, setRdbmsOpen] = useState(false)
@@ -67,7 +71,7 @@ export function DataSourcePage() {
       const params = { pageNumber, pageSize, keyword: keyword.trim() || undefined }
       const page =
         tab === 'mine' ? await searchDatasources(params) : await fetchSharedDatasources(params)
-      setRows(page.rows)
+      setRows(applyDatasourceRowsDemoThisMonthTimes(page.rows))
       setTotal(page.total)
     } catch (e) {
       message.error(e instanceof Error ? e.message : t('datasourcePage.msg.loadFailed'))
@@ -174,15 +178,21 @@ export function DataSourcePage() {
       {
         title: t('datasourcePage.col.label'),
         key: 'label',
+        width: 128,
         ellipsis: true,
         render: (_: unknown, row) => pickDatasourceRowLabel(row),
       },
       {
         title: t('datasourcePage.col.type'),
         key: 'type',
-        width: 120,
+        width: 104,
         ellipsis: true,
-        render: (_: unknown, row) => pickDatasourceTypeLabel(row),
+        render: (_: unknown, row) =>
+          t(
+            inferDatasourceOriginKind(row) === 'file'
+              ? 'datasourcePage.type.file'
+              : 'datasourcePage.type.database',
+          ),
       },
     ]
     if (showSyncStatusCol) {
@@ -205,9 +215,13 @@ export function DataSourcePage() {
       {
         title: t('datasourcePage.col.time'),
         key: 'time',
-        width: 180,
+        width: 256,
         ellipsis: true,
-        render: (_: unknown, row) => pickDatasourceTimeLabel(row),
+        render: (_: unknown, row) => {
+          const raw = pickDatasourceTimeRaw(row)
+          if (raw === '') return '—'
+          return formatDatasourceTimeForList(raw, t, locale)
+        },
       },
       {
         title: t('datasourcePage.col.actions'),
@@ -302,7 +316,7 @@ export function DataSourcePage() {
       },
     )
     return cols
-  }, [deletingId, onDelete, onSyncRow, showSyncStatusCol, syncingRowKey, t, tab])
+  }, [deletingId, locale, onDelete, onSyncRow, showSyncStatusCol, syncingRowKey, t, tab])
 
   return (
     <Card bordered={false}>
@@ -368,7 +382,7 @@ export function DataSourcePage() {
           loading={loading}
           columns={columns}
           dataSource={rows}
-          scroll={{ x: showSyncStatusCol ? 1160 : 1040 }}
+          scroll={{ x: showSyncStatusCol ? 1120 : 1000 }}
           pagination={{
             current: pageNumber,
             pageSize,

@@ -1,0 +1,10 @@
+# 以下为在本机执行 `pnpm test` 的示例输出（装订论文时可替换为答辩当次真实终端记录）
+
+ RUN  v3.2.4
+
+ ✓ src/types/datasource.test.ts (8 tests)
+ ✓ src/utils/csvPreviewShared.test.ts (5 tests)
+ ✓ src/utils/datasourceListTimeFormat.test.ts (4 tests)
+
+ Test Files  3 passed (3)
+      Tests  17 passed (17)

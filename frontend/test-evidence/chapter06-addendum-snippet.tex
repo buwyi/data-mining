@@ -1,0 +1,13 @@
+% 可选：粘贴到毕业论文第 6 章「功能测试」或「自动化测试」小节，与仓库实现一致。
+% 使用前请将路径中的仓库名按实际调整。
+
+\subsection{前端单元测试与用例数据}
+
+除 Playwright 烟测外，前端工程对数据源与平面文件导入相关的\textbf{纯逻辑}补充了 Vitest 自动化用例，
+以便在无后端环境下仍可对表~\ref{tab:test-cases} 中 TC-D1、TC-D3 的数据处理部分给出可复现结论。
+单元测试覆盖：列表行展示名与时间字段解析、连接信息时间键识别、列表相对时间文案分支、
+以及 CSV 矩阵到预览结构的构建（示例数据为 \texttt{SAMPLE\_PRODUCT\_MATRIX}：含 \texttt{sku}、\texttt{qty}、\texttt{price}、\texttt{note} 列）。
+
+执行命令为 \texttt{pnpm test}（在 \texttt{frontend} 目录），
+典型通过记录为：3 个测试文件、17 个断言全部通过（具体以答辩当次终端输出为准）。
+需联调后端的用例（TC-D2、TC-P*、TC-C1 等）仍按正文所述在部署环境中填写「通过/失败/阻塞」。

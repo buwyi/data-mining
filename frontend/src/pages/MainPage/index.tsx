@@ -1,15 +1,8 @@
-import {
-  ApartmentOutlined,
-  DatabaseOutlined,
-  DeleteOutlined,
-  FileTextOutlined,
-  TeamOutlined,
-} from '@ant-design/icons'
+import { ApartmentOutlined, DatabaseOutlined, DeleteOutlined } from '@ant-design/icons'
 import {
   App,
   Button,
   Card,
-  Carousel,
   Col,
   Empty,
   Form,
@@ -21,13 +14,8 @@ import {
   Space,
   Typography,
 } from 'antd'
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import {
-  fetchBannerBbs,
-  fetchBannerDocumentation,
-  isProbableBannerImageUrl,
-} from '../../api/bannerApi'
 import { cloneProjectFromDocument } from '../../api/projectApi'
 import { deleteTemplate, fetchTemplateList } from '../../api/templateApi'
 import {
@@ -40,94 +28,7 @@ import {
 } from '../../types/template'
 import { useI18n } from '../../i18n/I18nProvider'
 
-const { Title, Paragraph, Text } = Typography
-
-function openExternal(url: string) {
-  try {
-    const u = new URL(url, window.location.origin)
-    if (u.origin === window.location.origin) {
-      window.location.href = u.href
-      return
-    }
-  } catch {
-    /* fall through */
-  }
-  window.open(url, '_blank', 'noopener,noreferrer')
-}
-
-function BannerCarouselSlide({ title, url }: { title: string; url: string }) {
-  const [imgFailed, setImgFailed] = useState(false)
-  const tryImage = isProbableBannerImageUrl(url) && !imgFailed
-
-  const inner: ReactNode = tryImage ? (
-    <div
-      role="link"
-      tabIndex={0}
-      onClick={() => openExternal(url)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          openExternal(url)
-        }
-      }}
-      style={{
-        position: 'relative',
-        minHeight: 140,
-        borderRadius: 8,
-        overflow: 'hidden',
-        cursor: 'pointer',
-        outline: 'none',
-      }}
-    >
-      <img
-        src={url}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        onError={() => setImgFailed(true)}
-        style={{
-          width: '100%',
-          height: 140,
-          objectFit: 'cover',
-          display: 'block',
-          verticalAlign: 'top',
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          padding: '20px 16px 12px',
-          background: 'linear-gradient(transparent, rgba(0, 0, 0, 0.72))',
-        }}
-      >
-        <Text strong style={{ color: '#fff', fontSize: 15, textShadow: '0 1px 2px rgba(0,0,0,0.35)' }}>
-          {title}
-        </Text>
-      </div>
-    </div>
-  ) : (
-    <div
-      style={{
-        minHeight: 72,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--ant-color-fill-quaternary)',
-        borderRadius: 8,
-        padding: 16,
-      }}
-    >
-      <Button type="link" size="large" onClick={() => openExternal(url)}>
-        {title}
-      </Button>
-    </div>
-  )
-
-  return <div>{inner}</div>
-}
+const { Title, Paragraph } = Typography
 
 export function MainPage() {
   const { t } = useI18n()
@@ -137,38 +38,12 @@ export function MainPage() {
   const [createFromTplOpen, setCreateFromTplOpen] = useState(false)
   const [createFromTplRow, setCreateFromTplRow] = useState<TemplateListRow | null>(null)
   const [creatingFromTpl, setCreatingFromTpl] = useState(false)
-  const [bbsLinks, setBbsLinks] = useState<Record<string, string>>({})
-  const [docLinks, setDocLinks] = useState<Record<string, string>>({})
-  const [bannerLoading, setBannerLoading] = useState(true)
   const [templates, setTemplates] = useState<TemplateListRow[]>([])
   const [total, setTotal] = useState(0)
   const [pageNumber, setPageNumber] = useState(1)
   const [pageSize, setPageSize] = useState(8)
   const [listLoading, setListLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    setBannerLoading(true)
-    void Promise.all([fetchBannerBbs().catch(() => ({})), fetchBannerDocumentation().catch(() => ({}))])
-      .then(([bbs, doc]) => {
-        if (cancelled) return
-        setBbsLinks(bbs)
-        setDocLinks(doc)
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setBbsLinks({})
-          setDocLinks({})
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setBannerLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   const loadTemplates = useCallback(async () => {
     setListLoading(true)
@@ -253,9 +128,6 @@ export function MainPage() {
     }
   }, [createForm, createFromTplRow, message, navigate, t])
 
-  const bbsEntries = Object.entries(bbsLinks)
-  const docEntries = Object.entries(docLinks)
-
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
       <div>
@@ -276,39 +148,6 @@ export function MainPage() {
           </Link>
         </Space>
       </div>
-
-      <Card size="small" title={t('mainPage.bannerCardTitle')} loading={bannerLoading}>
-        {bbsEntries.length === 0 && docEntries.length === 0 ? (
-          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('mainPage.bannerEmpty')} />
-        ) : (
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-            {bbsEntries.length > 0 && (
-              <div>
-                <Text strong>
-                  <TeamOutlined /> {t('mainPage.community')}
-                </Text>
-                <Carousel autoplay dots style={{ marginTop: 8 }} adaptiveHeight>
-                  {bbsEntries.map(([title, url]) => (
-                    <BannerCarouselSlide key={`bbs-${title}-${url}`} title={title} url={url} />
-                  ))}
-                </Carousel>
-              </div>
-            )}
-            {docEntries.length > 0 && (
-              <div>
-                <Text strong>
-                  <FileTextOutlined /> {t('mainPage.docs')}
-                </Text>
-                <Carousel autoplay dots style={{ marginTop: 8 }} adaptiveHeight>
-                  {docEntries.map(([title, url]) => (
-                    <BannerCarouselSlide key={`doc-${title}-${url}`} title={title} url={url} />
-                  ))}
-                </Carousel>
-              </div>
-            )}
-          </Space>
-        )}
-      </Card>
 
       <div>
         <Title level={5}>{t('mainPage.templatesTitle')}</Title>
